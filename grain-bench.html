@@ -1,0 +1,1549 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRAIN — fractal texture DSL bench</title>
+<style>
+:root{
+  --bg:#141518; --bench:#1c1e22; --panel:#22252a; --line:#2f333a; --ink:#d9d5cc; --dim:#8a8e95; --faint:#565a61;
+  --ok:#8fb7a6; --warn:#d9b26a; --err:#d98072; --hot:#e6e0d3;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:12.5px/1.5 var(--mono)}
+body{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden}
+header{display:flex;align-items:baseline;gap:18px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--bench)}
+header h1{margin:0;font-size:13px;letter-spacing:.28em;font-weight:600;color:var(--hot)}
+header .sub{color:var(--dim);letter-spacing:.04em}
+header .right{margin-left:auto;color:var(--faint);letter-spacing:.06em;font-size:11px}
+main{display:grid;grid-template-columns:minmax(380px,44%) 1fr;min-height:0}
+/* ---------- left: spec ---------- */
+.spec{display:grid;grid-template-rows:auto 1fr auto;min-height:0;border-right:1px solid var(--line);background:var(--bench)}
+.tabs{display:flex;flex-wrap:wrap;gap:1px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg)}
+.tab{background:none;border:1px solid transparent;color:var(--dim);font:inherit;font-size:11px;letter-spacing:.12em;padding:4px 9px;cursor:pointer;border-radius:2px}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--hot);border-color:var(--line);background:var(--panel)}
+.tab:focus-visible{outline:1px solid var(--ok);outline-offset:1px}
+textarea{width:100%;height:100%;resize:none;border:0;outline:0;background:var(--bench);color:var(--ink);font:12.5px/1.6 var(--mono);padding:14px 16px;tab-size:2;white-space:pre;overflow:auto}
+textarea::selection{background:#3a4048}
+.status{border-top:1px solid var(--line);padding:8px 14px 10px;display:grid;gap:5px;font-size:11.5px;background:var(--bg)}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.k{color:var(--faint);letter-spacing:.1em;font-size:10.5px}
+.meter{position:relative;flex:1;height:6px;background:var(--panel);border-radius:1px;overflow:hidden;min-width:80px}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--ok);width:0%;transition:width .25s}
+.meter.over i{background:var(--err)}
+.msg{white-space:pre-wrap;color:var(--dim)}
+.msg.err{color:var(--err)}
+.msg.warn{color:var(--warn)}
+.irbox{border-top:1px solid var(--line);background:#111216;max-height:38vh;overflow:auto;padding:10px 14px;white-space:pre;font:11px/1.5 var(--mono);color:#aeb7ad;display:none}
+.irbox.on{display:block}
+/* ---------- right: bench ---------- */
+.bench{display:grid;grid-template-rows:auto 1fr;min-height:0;overflow:auto;background:var(--bench)}
+.views{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row dense;gap:1px;background:var(--line);align-content:start;justify-content:start;min-height:0;overflow:hidden}
+.views{border-bottom:1px solid var(--line)}
+.view{background:var(--bg);position:relative;display:flex;flex-direction:column}
+.view canvas{width:100%;aspect-ratio:1/1;display:block;image-rendering:auto;background:#000}
+.view .cap{position:absolute;left:10px;top:8px;font-size:10.5px;letter-spacing:.16em;color:var(--hot);text-shadow:0 0 6px #000,0 0 2px #000;pointer-events:none}
+.view.lit canvas{cursor:crosshair}
+.view.lit .hint{position:absolute;right:10px;bottom:8px;font-size:10px;letter-spacing:.06em;color:var(--dim);text-shadow:0 0 4px #000;pointer-events:none}
+.view.preview3d{grid-column:span 2;grid-row:span 2;min-width:0;overflow:hidden;background:radial-gradient(circle at 50% 36%,#363a40 0,#202328 48%,#111316 100%)}
+.view.preview3d::before{content:"";position:absolute;z-index:0;left:3%;right:3%;bottom:-24%;height:68%;background:radial-gradient(ellipse at 50% 25%,rgba(120,128,140,.33),rgba(44,49,57,.18) 42%,rgba(14,16,19,0) 74%);transform:perspective(420px) rotateX(64deg);transform-origin:50% 100%;pointer-events:none}
+.view.preview3d::after{content:"";position:absolute;z-index:0;left:25%;right:25%;top:67%;height:12%;background:radial-gradient(ellipse,rgba(0,0,0,.62),rgba(0,0,0,.24) 45%,transparent 74%);filter:blur(8px);pointer-events:none}
+.view.preview3d canvas{position:relative;z-index:1;width:100%;height:100%;aspect-ratio:1/1;background:transparent;cursor:grab;touch-action:none}
+.view.preview3d canvas:active{cursor:grabbing}
+.view.preview3d .cap,.view.preview3d .hint{z-index:2}
+.view.preview3d .hint{position:absolute;right:10px;bottom:8px;font-size:10px;letter-spacing:.06em;color:#adb0b5;text-shadow:0 0 5px #000;pointer-events:none}
+.view.preview3d .webgl-note{position:absolute;z-index:3;inset:0;display:none;place-items:center;text-align:center;padding:24px;color:var(--warn);background:#15171a;white-space:pre-wrap;font-size:11px}
+.view.preview3d.no-webgl .webgl-note{display:grid}
+.controls{border-top:1px solid var(--line);background:var(--bench);padding:10px 16px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px 28px}
+.ctl select{width:100%;min-width:0}
+.ctl{display:grid;grid-template-columns:110px 1fr 46px;align-items:center;gap:10px;font-size:11.5px}
+.ctl label{color:var(--dim);letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctl output{color:var(--hot);text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:14px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--ink);margin-top:-4px;border:0}
+input[type=range]:focus-visible::-webkit-slider-thumb{outline:1px solid var(--ok);outline-offset:2px}
+input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:var(--ink);border:0}
+.vars{grid-column:1/-1;border-top:1px dashed var(--line);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px 28px}
+.vars .k{grid-column:1/-1}
+.vars:empty{display:none}
+select,button.btn{font:inherit;font-size:11px;letter-spacing:.08em;background:var(--panel);color:var(--ink);border:1px solid var(--line);padding:3px 8px;border-radius:2px}
+.mesh-fixed{color:var(--hot);letter-spacing:.08em;padding:3px 8px;border:1px solid var(--line);background:var(--panel);border-radius:2px}
+button.btn{cursor:pointer}
+button.btn:hover{color:var(--hot);border-color:var(--dim)}
+@media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.spec{border-right:0;border-bottom:1px solid var(--line)}.views{grid-template-columns:repeat(2,minmax(0,1fr))}.view.preview3d{grid-column:1/-1;grid-row:auto}}
+@media (prefers-reduced-motion:reduce){.meter i{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>GRAIN</h1>
+  <span class="sub">fractal texture DSL · 순수 field · macro 인라인 · 격자 wrap 타일링 · 되먹임 없음 · 비용 컴파일 타임 확정</span>
+  <span class="right"><span id="hdr-tile"></span> · <span id="hdr-right"></span></span>
+</header>
+<main>
+  <section class="spec">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <textarea id="src" spellcheck="false" aria-label="material spec"></textarea>
+    <div class="status">
+      <div class="row">
+        <span class="k">COST</span><div class="meter" id="meter"><i></i></div><span id="cost">–</span>
+        <span class="k" title="user + macro-expanded hidden">FIELDS</span><span id="nfields">–</span>
+        <span class="k">MACROS</span><span id="nmacros">–</span>
+        <span class="k">EVAL</span><span id="evalms">–</span>
+        <span class="k" title="경계 양쪽 height/albedo 최대 차이. 0 = 완전 타일">SEAM</span><span id="seam">–</span>
+      </div>
+      <div class="msg" id="msg">준비.</div>
+      <div class="row"><button class="btn" id="toggle-ir" type="button">SSA IR 보기</button><span class="k" id="nir">IR –</span></div>
+    </div>
+    <pre class="irbox" id="irbox" aria-label="canonical SSA IR"></pre>
+  </section>
+  <section class="bench">
+    <div class="views">
+      <div class="view preview3d"><canvas id="c-preview3d" aria-label="interactive cube 3D material preview"></canvas><span class="cap">MATERIAL 3D · STUDIO IBL</span><span class="hint">AO/shadow · drag: 회전 · wheel: 거리</span><span class="webgl-note">WebGL 2를 사용할 수 없어<br>3D 프리뷰를 표시하지 못했습니다.</span></div>
+      <div class="view lit"><canvas id="c-shaded"></canvas><span class="cap">SHADED</span><span class="hint">drag: 광원 방향</span></div>
+      <div class="view"><canvas id="c-albedo"></canvas><span class="cap">ALBEDO</span></div>
+      <div class="view"><canvas id="c-height"></canvas><span class="cap">HEIGHT</span></div>
+      <div class="view"><canvas id="c-normal"></canvas><span class="cap">NORMAL</span></div>
+    </div>
+    <div class="controls">
+      <div class="ctl"><label>light azimuth</label><input id="az" type="range" min="0" max="1" step="0.005" value="0.12"><output id="az-o">0.12</output></div>
+      <div class="ctl"><label>light elevation</label><input id="el" type="range" min="0.05" max="1" step="0.01" value="0.45"><output id="el-o">0.45</output></div>
+      <div class="ctl"><label>relief</label><input id="relief" type="range" min="0" max="2" step="0.02" value="0.6"><output id="relief-o">0.60</output></div>
+      <div class="ctl"><label>resolution</label>
+        <select id="res" aria-label="resolution"><option>128</option><option>192</option><option>256</option><option selected>320</option><option>384</option><option value="512">512 · FINAL</option></select>
+        <button class="btn" id="reseed" title="seed 줄을 +1">seed +1</button></div>
+      <div class="ctl"><label>zoom / footprint</label>
+        <select id="zoom" aria-label="procedural zoom"><option value="1" selected>1×</option><option value="4">4×</option><option value="16">16×</option><option value="64">64×</option></select><output id="zoom-o">1×</output></div>
+      <div class="ctl"><label>preview</label>
+        <select id="tiled" aria-label="preview tiling"><option value="1">1×1</option><option value="2">2×2 tiled</option><option value="3">3×3 tiled</option></select><span></span></div>
+      <div class="ctl"><label>3D surface</label>
+        <span class="mesh-fixed">cube</span>
+        <button class="btn" id="reset3d" type="button">reset view</button></div>
+      <div class="ctl"><label>3D repeat</label><input id="repeat3d" type="range" min="1" max="6" step="1" value="1"><output id="repeat3d-o">1×</output></div>
+      <div class="vars" id="vars"></div>
+    </div>
+  </section>
+</main>
+<script>
+// ============================================================
+// GRAIN — fractal texture DSL engine (parser / validator / compiler)
+// 순수 field 언어. 되먹임 없음, 비용은 컴파일 타임에 확정.
+// ============================================================
+const GRAIN = (() => {
+
+  // ---------- limits (장치 프로파일에서 재조정 대상) ----------
+  const LIMITS = {
+    maxOct: 8, maxFields: 32, maxExpandedFields: 128, maxCost: 64, maxVars: 16, maxMacros: 24, maxMacroDepth: 4,
+    outs: ['height', 'albedo', 'rough', 'metal'],
+    requiredOuts: ['height', 'albedo'],
+  };
+
+  // ---------- procedural primitives ----------
+  // v0.4의 권위 있는 저수준 난수 원자는 hash2뿐이다. 나머지 생성기는 이주용 shortcut이다.
+  // cost: 픽셀당 상대 연산량. fbm/ridged는 oct 배수.
+  const PRIMS = {
+    // tile: 좌표 공간 주기(literal, 0=비주기). 격자 wrap으로 구현 → 주기 = tile*freq(*lac^i) 가 정수여야 이음새 없음.
+    noise:   { pos: ['x','y'], named: { freq:1, seed:0, tile:0 }, lit: ['seed','tile'], cost: () => 1 },
+    fbm:     { pos: ['x','y'], named: { freq:1, oct:4, lac:2, gain:0.5, seed:0, tile:0 }, lit: ['oct','lac','seed','tile'], cost: a => a.oct },
+    ridged:  { pos: ['x','y'], named: { freq:1, oct:4, lac:2, gain:0.5, seed:0, tile:0 }, lit: ['oct','lac','seed','tile'], cost: a => a.oct },
+    worley:  { pos: ['x','y'], named: { freq:1, jitter:1, out:'f1', seed:0, tile:0 }, lit: ['out','seed','tile'], cost: () => 3, enums: { out: ['f1','f2','edge','id'] } },
+    spots:   { pos: ['x','y'], named: { freq:1, prob:0.5, radius:0.3, seed:0, tile:0 }, lit: ['seed','tile'], cost: () => 3 },
+    stripes: { pos: ['x'],     named: { freq:1, duty:0.5, soft:0.1 }, lit: [], cost: () => 0.2 },
+    hash:    { pos: ['x'],     named: { seed:0 }, lit: ['seed'], cost: () => 0.2 },
+    hash2:   { pos: ['ix','iy'], named: { seed:0, period:0 }, lit: ['seed','period'], cost: () => 0.2 },
+    hsv:     { pos: ['h','s','v'], named: {}, lit: [], cost: () => 0, tuple: true },
+  };
+  const FUNCS = {
+    sin: Math.sin, cos: Math.cos, tan: Math.tan, abs: Math.abs, sqrt: Math.sqrt,
+    floor: Math.floor, ceil: Math.ceil, round: Math.round, sign: Math.sign,
+    exp: Math.exp, min: Math.min, max: Math.max, pow: Math.pow,
+    fract: x => x - Math.floor(x),
+    mod: (a, b) => ((a % b) + b) % b,
+    clamp: (x, a, b) => x < a ? a : x > b ? b : x,
+    lerp: (a, b, t) => a + (b - a) * t,
+    step: (e, x) => x < e ? 0 : 1,
+    smoothstep: (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); },
+    select: (c, a, b) => c ? a : b,
+  };
+  const CONSTS = { PI: Math.PI, TAU: Math.PI * 2 };
+
+  // ---------- deterministic hashing / noise ----------
+  function hashi(ix, iy, s) {
+    let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(s + 1, 1274126177)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+  function hash1(x, s) { const f = Math.floor(x * 65536); return hashi(f, f >> 7, s); }
+  const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+  function grad(ix, iy, s, dx, dy) {
+    const a = hashi(ix, iy, s) * Math.PI * 2;
+    return Math.cos(a) * dx + Math.sin(a) * dy;
+  }
+  const wrap = (i, p) => p > 0 ? ((i % p) + p) % p : i;
+  // gradient noise, 0..1. p>0이면 격자 주기 p (정수)
+  function gnoise(x, y, s, p) {
+    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+    const u = fade(fx), v = fade(fy);
+    const x0 = wrap(ix, p), x1 = wrap(ix + 1, p), y0 = wrap(iy, p), y1 = wrap(iy + 1, p);
+    const n00 = grad(x0, y0, s, fx, fy), n10 = grad(x1, y0, s, fx - 1, fy);
+    const n01 = grad(x0, y1, s, fx, fy - 1), n11 = grad(x1, y1, s, fx - 1, fy - 1);
+    const nx0 = n00 + (n10 - n00) * u, nx1 = n01 + (n11 - n01) * u;
+    return 0.5 + 0.5 * (nx0 + (nx1 - nx0) * v) * 1.4142;
+  }
+  function fbm(x, y, freq, oct, lac, gain, s, tile) {
+    let a = 0.5, sum = 0, norm = 0, f = freq;
+    for (let i = 0; i < oct; i++) { sum += a * gnoise(x * f, y * f, s + i * 31, tile > 0 ? Math.round(tile * f) : 0); norm += a; a *= gain; f *= lac; }
+    return sum / norm;
+  }
+  function ridged(x, y, freq, oct, lac, gain, s, tile) {
+    let a = 0.5, sum = 0, norm = 0, f = freq;
+    for (let i = 0; i < oct; i++) {
+      const n = 1 - Math.abs(2 * gnoise(x * f, y * f, s + i * 31, tile > 0 ? Math.round(tile * f) : 0) - 1);
+      sum += a * n * n; norm += a; a *= gain; f *= lac;
+    }
+    return sum / norm;
+  }
+  function worley(x, y, freq, jitter, out, s, tile) {
+    const px = x * freq, py = y * freq, p = tile > 0 ? Math.round(tile * freq) : 0;
+    const ix = Math.floor(px), iy = Math.floor(py);
+    let f1 = 1e9, f2 = 1e9, id = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const cx = ix + i, cy = iy + j, hx = wrap(cx, p), hy = wrap(cy, p);
+      const ox = 0.5 + jitter * (hashi(hx, hy, s) - 0.5), oy = 0.5 + jitter * (hashi(hx, hy, s + 977) - 0.5);
+      const dx = cx + ox - px, dy = cy + oy - py, d = dx * dx + dy * dy;
+      if (d < f1) { f2 = f1; f1 = d; id = hashi(hx, hy, s + 1291); } else if (d < f2) f2 = d;
+    }
+    f1 = Math.sqrt(f1); f2 = Math.sqrt(f2);
+    return out === 'f1' ? f1 : out === 'f2' ? f2 : out === 'edge' ? f2 - f1 : id;
+  }
+  function spots(x, y, freq, prob, radius, s, tile) {
+    const px = x * freq, py = y * freq, ix = Math.floor(px), iy = Math.floor(py), p = tile > 0 ? Math.round(tile * freq) : 0;
+    let best = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const cx = ix + i, cy = iy + j, hx = wrap(cx, p), hy = wrap(cy, p);
+      if (hashi(hx, hy, s) >= prob) continue;
+      const ox = 0.25 + 0.5 * hashi(hx, hy, s + 977), oy = 0.25 + 0.5 * hashi(hx, hy, s + 1291);
+      const dx = cx + ox - px, dy = cy + oy - py, d = Math.sqrt(dx * dx + dy * dy);
+      const r = radius * (0.7 + 0.6 * hashi(hx, hy, s + 4441));
+      const v = FUNCS.smoothstep(r, r * 0.45, d);
+      if (v > best) best = v;
+    }
+    return best;
+  }
+  function stripes(x, freq, duty, soft) {
+    const f = FUNCS.fract(x * freq);
+    const a = FUNCS.smoothstep(0, soft, f), b = 1 - FUNCS.smoothstep(duty, duty + soft, f);
+    return Math.min(a, b);
+  }
+  const PRIM_IMPL = {
+    noise: (x, y, a) => gnoise(x * a.freq, y * a.freq, a.seed, a.tile > 0 ? Math.round(a.tile * a.freq) : 0),
+    fbm: (x, y, a) => fbm(x, y, a.freq, a.oct, a.lac, a.gain, a.seed, a.tile),
+    ridged: (x, y, a) => ridged(x, y, a.freq, a.oct, a.lac, a.gain, a.seed, a.tile),
+    worley: (x, y, a) => worley(x, y, a.freq, a.jitter, a.out, a.seed, a.tile),
+    spots: (x, y, a) => spots(x, y, a.freq, a.prob, a.radius, a.seed, a.tile),
+    stripes: (x, a) => stripes(x, a.freq, a.duty, a.soft),
+    hash: (x, a) => hash1(x, a.seed),
+    hash2: (ix, iy, a) => hashi(wrap(Math.floor(ix), a.period), wrap(Math.floor(iy), a.period), a.seed),
+  };
+
+  // ---------- tokenizer ----------
+  function tokenize(src, line) {
+    const toks = []; let i = 0;
+    const isD = c => c >= '0' && c <= '9', isA = c => /[A-Za-z_]/.test(c);
+    while (i < src.length) {
+      const c = src[i];
+      if (c === ' ' || c === '\t') { i++; continue; }
+      if (c === '#') break;
+      if (c === '/' && src[i + 1] === '/') break;
+      if (isD(c) || (c === '.' && isD(src[i + 1]))) {
+        let j = i; while (j < src.length && /[0-9.eE]/.test(src[j])) j++;
+        toks.push({ t: 'num', v: parseFloat(src.slice(i, j)), raw: src.slice(i, j) }); i = j; continue;
+      }
+      if (isA(c)) { let j = i; while (j < src.length && /[A-Za-z0-9_]/.test(src[j])) j++; toks.push({ t: 'id', v: src.slice(i, j) }); i = j; continue; }
+      const two = src.slice(i, i + 2);
+      if (['<=', '>=', '==', '!=', '&&', '||'].includes(two)) { toks.push({ t: 'op', v: two }); i += 2; continue; }
+      if ('+-*/%<>()[],=?:!'.includes(c)) { toks.push({ t: 'op', v: c }); i++; continue; }
+      throw new Error(`line ${line}: 알 수 없는 문자 '${c}'`);
+    }
+    return toks;
+  }
+
+  // ---------- Pratt parser → AST ----------
+  const BP = { '?': 1, '||': 2, '&&': 3, '==': 4, '!=': 4, '<': 5, '>': 5, '<=': 5, '>=': 5, '+': 6, '-': 6, '*': 7, '/': 7, '%': 7 };
+  function parseExpr(toks, line) {
+    let p = 0;
+    const peek = () => toks[p], next = () => toks[p++];
+    const expect = (v) => { const t = next(); if (!t || t.v !== v) throw new Error(`line ${line}: '${v}' 필요, ${t ? `'${t.v}'` : '문장 끝'} 발견`); return t; };
+    function nud() {
+      const t = next();
+      if (!t) throw new Error(`line ${line}: 수식이 끝나지 않음`);
+      if (t.t === 'num') return { k: 'num', v: t.v };
+      if (t.t === 'id') {
+        if (peek() && peek().v === '(') {
+          next(); const args = [], named = {};
+          if (peek() && peek().v !== ')') {
+            for (;;) {
+              if (peek() && peek().t === 'id' && toks[p + 1] && toks[p + 1].v === '=') {
+                const name = next().v; next(); named[name] = expr(0);
+              } else args.push(expr(0));
+              if (peek() && peek().v === ',') { next(); continue; }
+              break;
+            }
+          }
+          expect(')');
+          return { k: 'call', name: t.v, args, named };
+        }
+        return { k: 'id', name: t.v };
+      }
+      if (t.v === '(') { const e = expr(0); expect(')'); return e; }
+      if (t.v === '-') return { k: 'neg', a: expr(8) };
+      if (t.v === '!') return { k: 'not', a: expr(8) };
+      throw new Error(`line ${line}: 예상치 못한 토큰 '${t.v}'`);
+    }
+    function expr(rbp) {
+      let left = nud();
+      for (;;) {
+        const t = peek(); if (!t || t.t !== 'op') break;
+        const bp = BP[t.v]; if (bp === undefined || bp <= rbp) break;
+        next();
+        if (t.v === '?') { const a = expr(0); expect(':'); const b = expr(0); left = { k: 'tern', c: left, a, b }; continue; }
+        left = { k: 'bin', op: t.v, a: left, b: expr(bp) };
+      }
+      return left;
+    }
+    const e = expr(0);
+    if (p < toks.length) throw new Error(`line ${line}: 수식 뒤에 남은 토큰 '${toks[p].v}'`);
+    return e;
+  }
+
+  // ---------- statements ----------
+  // seed = <int>
+  // var name = <literal>
+  // field name = <expr>
+  // out (height|albedo|rough|metal) = <expr>
+  function parseDSL(text) {
+    const doc = { seed: 0, tile: 0, vars: [], fields: [], outs: {}, macros: [] };
+    const lines = text.split('\n');
+    let cur = null; // 열려 있는 macro
+    lines.forEach((raw, idx) => {
+      const line = idx + 1;
+      const s = raw.replace(/#.*$/, '').replace(/\/\/.*$/, '').replace(/\s+$/, '');
+      if (!s.trim()) return;
+      const indented = /^\s/.test(s);
+      const t = s.trim();
+      let m;
+      if (indented) {
+        if (!cur) throw new Error(`line ${line}: 들여쓰기는 macro 본문에서만 허용`);
+        if ((m = t.match(/^return\s+(.+)$/))) {
+          if (cur.ret) throw new Error(`line ${line}: macro '${cur.name}'에 return이 두 번`);
+          cur.ret = { expr: parseExpr(tokenize(m[1], line), line), line }; return;
+        }
+        if ((m = t.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/))) {
+          if (cur.ret) throw new Error(`line ${line}: return 뒤에는 문장이 올 수 없음`);
+          if (cur.params.some(p => p.name === m[1]) || cur.locals.some(l => l.name === m[1])) throw new Error(`line ${line}: macro 안에서 '${m[1]}' 중복`);
+          cur.locals.push({ name: m[1], expr: parseExpr(tokenize(m[2], line), line), line }); return;
+        }
+        throw new Error(`line ${line}: macro 본문은 'name = 수식' 또는 'return 수식'만 허용: "${t}"`);
+      }
+      if (cur) { if (!cur.ret) throw new Error(`line ${cur.line}: macro '${cur.name}'에 return이 없음`); cur = null; }
+      if ((m = t.match(/^seed\s*=\s*(\d+)$/))) { doc.seed = parseInt(m[1]); return; }
+      if ((m = t.match(/^tile\s*=\s*(\d+)$/))) { doc.tile = parseInt(m[1]); return; }
+      if ((m = t.match(/^var\s+([A-Za-z_]\w*)\s*=\s*(.+)$/))) {
+        const toks = tokenize(m[2], line);
+        let v;
+        if (toks.length === 1 && toks[0].t === 'num') v = toks[0].v;
+        else if (toks.length === 2 && toks[0].v === '-' && toks[1].t === 'num') v = -toks[1].v;
+        else throw new Error(`line ${line}: var의 값은 숫자 literal이어야 함`);
+        doc.vars.push({ name: m[1], value: v, line }); return;
+      }
+      if ((m = t.match(/^macro\s+([A-Za-z_]\w*)\s*\((.*)\)\s*:$/))) {
+        const params = [];
+        if (m[2].trim()) for (const p of m[2].split(',')) {
+          const pm = p.trim().match(/^([A-Za-z_]\w*)(?:\s*=\s*(-?[0-9.]+))?$/);
+          if (!pm) throw new Error(`line ${line}: macro 파라미터 형식은 'name' 또는 'name=literal': "${p.trim()}"`);
+          params.push({ name: pm[1], def: pm[2] === undefined ? undefined : parseFloat(pm[2]) });
+        }
+        if (params.some(p => p.name === 'seed')) throw new Error(`line ${line}: 'seed'는 모든 macro의 암묵 파라미터 (선언 불필요)`);
+        cur = { name: m[1], params, locals: [], ret: null, line };
+        doc.macros.push(cur); return;
+      }
+      if ((m = t.match(/^field\s+([A-Za-z_]\w*)\s*=\s*(.+)$/))) {
+        doc.fields.push({ name: m[1], expr: parseExpr(tokenize(m[2], line), line), line }); return;
+      }
+      if ((m = t.match(/^out\s+([A-Za-z_]\w*)\s*=\s*(.+)$/))) {
+        if (!LIMITS.outs.includes(m[1])) throw new Error(`line ${line}: 알 수 없는 출력 '${m[1]}' (허용: ${LIMITS.outs.join(', ')})`);
+        doc.outs[m[1]] = { expr: parseExpr(tokenize(m[2], line), line), line }; return;
+      }
+      throw new Error(`line ${line}: 해석할 수 없는 문장: "${t}"`);
+    });
+    if (cur && !cur.ret) throw new Error(`line ${cur.line}: macro '${cur.name}'에 return이 없음`);
+    return doc;
+  }
+
+  // ---------- macro expansion (AST-level inlining) ----------
+  // 규칙: 앞선 macro만 참조(재귀 불가), 깊이 ≤ maxMacroDepth, 본문은 params·vars·상수·앞선 local만 봄(바깥 field 불가).
+  // literal 인자는 치환(→ oct 등 구조 literal로 흘러갈 수 있음), 수식 인자는 hidden field에 1회 바인딩.
+  // 암묵 파라미터 seed(literal)는 본문 안 primitive의 seed에 더해짐 → 같은 macro의 여러 인스턴스가 서로 다른 난수.
+  function expandMacros(doc) {
+    const macroIndex = {}; doc.macros.forEach((mc, i) => {
+      if (macroIndex[mc.name] !== undefined) throw new Error(`line ${mc.line}: macro '${mc.name}' 중복 선언`);
+      macroIndex[mc.name] = i;
+    });
+    if (doc.macros.length > LIMITS.maxMacros) throw new Error(`macro 수 ${doc.macros.length} > ${LIMITS.maxMacros}`);
+    const varNames = new Set(doc.vars.map(v => v.name));
+    let instances = 0, uid = 0;
+    const isLit = n => n.k === 'num' || (n.k === 'neg' && n.a.k === 'num') || (n.k === 'id' && !(n.name in macroIndex));
+
+    // node 안의 식별자를 치환하고, macro 호출을 펼친다. emit: hidden field push
+    function rewrite(node, env, emit, depth, seedAdd, line, macroCtx) {
+      switch (node.k) {
+        case 'num': return node;
+        case 'id': {
+          if (env && (node.name in env)) return env[node.name];
+          if (macroCtx && !varNames.has(node.name) && !(node.name in CONSTS) && node.name !== 'u' && node.name !== 'v')
+            throw new Error(`line ${line}: macro '${macroCtx}' 안에서 알 수 없는 이름 '${node.name}' (본문은 파라미터·local·var만 참조 가능, 바깥 field 불가)`);
+          return node;
+        }
+        case 'neg': return { k: 'neg', a: rewrite(node.a, env, emit, depth, seedAdd, line, macroCtx) };
+        case 'not': return { k: 'not', a: rewrite(node.a, env, emit, depth, seedAdd, line, macroCtx) };
+        case 'tern': return { k: 'tern', c: rewrite(node.c, env, emit, depth, seedAdd, line, macroCtx), a: rewrite(node.a, env, emit, depth, seedAdd, line, macroCtx), b: rewrite(node.b, env, emit, depth, seedAdd, line, macroCtx) };
+        case 'bin': return { k: 'bin', op: node.op, a: rewrite(node.a, env, emit, depth, seedAdd, line, macroCtx), b: rewrite(node.b, env, emit, depth, seedAdd, line, macroCtx) };
+        case 'call': {
+          if (node.name in macroIndex) {
+            const mc = doc.macros[macroIndex[node.name]];
+            if (macroCtx && macroIndex[node.name] >= macroIndex[macroCtx]) throw new Error(`line ${line}: macro '${node.name}'은 '${macroCtx}' 뒤에 선언됨 (재귀·전방 참조 불가)`);
+            if (depth + 1 > LIMITS.maxMacroDepth) throw new Error(`line ${line}: macro 중첩 깊이 > ${LIMITS.maxMacroDepth}`);
+            // 인자 바인딩
+            const args = node.args.map(a => rewrite(a, env, emit, depth, seedAdd, line, macroCtx));
+            const named = {}; for (const [k, a] of Object.entries(node.named)) named[k] = k === 'seed' ? a : rewrite(a, env, emit, depth, seedAdd, line, macroCtx);
+            let callSeed = 0;
+            if (named.seed) { const sv = litValue(named.seed); if (typeof sv !== 'number' || !Number.isInteger(sv)) throw new Error(`line ${line}: ${node.name}(seed=…)는 정수 literal`); callSeed = sv; delete named.seed; }
+            if (args.length > mc.params.length) throw new Error(`line ${line}: ${node.name}()는 파라미터 ${mc.params.length}개(${mc.params.map(p => p.name).join(', ')}), 위치 인자 ${args.length}개 받음`);
+            for (const k of Object.keys(named)) if (!mc.params.some(p => p.name === k)) throw new Error(`line ${line}: ${node.name}()에 알 수 없는 파라미터 '${k}' (허용: ${mc.params.map(p => p.name).join(', ')})`);
+            const inst = ++instances; const tag = `__${node.name}_${inst}`;
+            const benv = {};
+            mc.params.forEach((p, i) => {
+              let a = i < args.length ? args[i] : named[p.name];
+              if (a === undefined) { if (p.def === undefined) throw new Error(`line ${line}: ${node.name}()의 '${p.name}' 인자 누락 (기본값 없음)`); a = { k: 'num', v: p.def }; }
+              if (i < args.length && named[p.name] !== undefined) throw new Error(`line ${line}: ${node.name}()의 '${p.name}'가 위치·이름 인자로 중복`);
+              if (isLit(a)) benv[p.name] = a;
+              else { const hn = `${tag}_${p.name}`; emit({ name: hn, expr: a, line, hidden: true, from: node.name, inst }); benv[p.name] = { k: 'id', name: hn }; }
+            });
+            const mySeed = seedAdd + callSeed * 1000 + inst * 0; // inst는 seed에 넣지 않음(재현성: 호출 순서 무관)
+            for (const l of mc.locals) {
+              const hn = `${tag}_${l.name}`;
+              const ex = rewrite(l.expr, benv, emit, depth + 1, mySeed, l.line, mc.name);
+              emit({ name: hn, expr: ex, line: l.line, hidden: true, from: node.name, inst });
+              benv[l.name] = { k: 'id', name: hn };
+            }
+            return rewrite(mc.ret.expr, benv, emit, depth + 1, mySeed, mc.ret.line, mc.name);
+          }
+          const args = node.args.map(a => rewrite(a, env, emit, depth, seedAdd, line, macroCtx));
+          const named = {}; for (const [k, a] of Object.entries(node.named)) {
+            const isEnum = node.name in PRIMS && PRIMS[node.name].enums && PRIMS[node.name].enums[k] && a.k === 'id' && !(env && a.name in env);
+            named[k] = isEnum ? a : rewrite(a, env, emit, depth, seedAdd, line, macroCtx);
+          }
+          if (node.name in PRIMS && PRIMS[node.name].lit.includes('seed') && seedAdd) {
+            const base = named.seed ? litValue(named.seed) : 0;
+            if (typeof base === 'number') named.seed = { k: 'num', v: base + seedAdd };
+          }
+          return { k: 'call', name: node.name, args, named };
+        }
+      }
+      return node;
+    }
+    const fields = [];
+    for (const f of doc.fields) {
+      const ex = rewrite(f.expr, null, h => fields.push(h), 0, 0, f.line, null);
+      fields.push({ name: f.name, expr: ex, line: f.line });
+    }
+    const outs = {};
+    for (const [k, o] of Object.entries(doc.outs)) {
+      const ex = rewrite(o.expr, null, h => fields.push(h), 0, 0, o.line, null);
+      outs[k] = { expr: ex, line: o.line };
+    }
+    if (fields.length > LIMITS.maxExpandedFields) throw new Error(`macro 확장 후 field 수 ${fields.length} > ${LIMITS.maxExpandedFields}`);
+    return { ...doc, fields, outs, macroInstances: instances, userFieldCount: doc.fields.length };
+  }
+
+  // ---------- validate + compile ----------
+  function litValue(node) {
+    if (!node) return undefined;
+    if (node.k === 'num') return node.v;
+    if (node.k === 'neg' && node.a.k === 'num') return -node.a.v;
+    if (node.k === 'id') return node.name; // enum literal (out=edge)
+    return undefined;
+  }
+
+  // ---------- canonical low-level SSA IR ----------
+  // DSL/macro는 입력 편의 계층일 뿐이다. 실행 및 백엔드의 계약은 이 평평한 단일 할당 명령열이다.
+  function lowerIR(doc) {
+    const code = [], fieldReg = {}, varIndex = {};
+    doc.vars.forEach((v, i) => varIndex[v.name] = i);
+    const emit = (op, src = [], imm = null, meta = null) => {
+      const dst = code.length;
+      code.push({ dst, op, src, ...(imm && Object.keys(imm).length ? { imm } : {}), ...(meta ? { meta } : {}) });
+      return dst;
+    };
+    const constant = (x, line) => emit('CONST', [], { value: x }, { line });
+    function lower(n, line) {
+      if (n.k === 'num') return constant(n.v, line);
+      if (n.k === 'id') {
+        if (n.name === 'u' || n.name === 'v' || n.name === 'rho') return emit('INPUT', [], { name: n.name }, { line });
+        if (n.name in CONSTS) return constant(CONSTS[n.name], line);
+        if (n.name in varIndex) return emit('PARAM', [], { index: varIndex[n.name], name: n.name }, { line });
+        if (n.name in fieldReg) return fieldReg[n.name];
+        throw new Error(`line ${line}: IR lowering: 알 수 없는 식별자 '${n.name}'`);
+      }
+      if (n.k === 'neg' || n.k === 'not') return emit(n.k === 'neg' ? 'NEG' : 'NOT', [lower(n.a, line)], null, { line });
+      if (n.k === 'tern') return emit('SELECT', [lower(n.c, line), lower(n.a, line), lower(n.b, line)], null, { line });
+      if (n.k === 'bin') {
+        const names = {'+':'ADD','-':'SUB','*':'MUL','/':'DIV','%':'MOD','<':'LT','>':'GT','<=':'LE','>=':'GE','==':'EQ','!=':'NE','&&':'AND','||':'OR'};
+        return emit(names[n.op], [lower(n.a, line), lower(n.b, line)], null, { line });
+      }
+      if (n.k === 'call') {
+        if (n.name === 'hsv') throw new Error(`line ${line}: hsv는 출력 lowering에서만 허용`);
+        if (n.name in FUNCS) return emit('FN_' + n.name.toUpperCase(), n.args.map(a => lower(a, line)), null, { line });
+        const P = PRIMS[n.name];
+        if (!P) throw new Error(`line ${line}: IR lowering: 알 수 없는 opcode '${n.name}'`);
+        const imm = {};
+        for (const k of P.lit) {
+          let val = n.named[k] === undefined ? (k === 'tile' ? doc.tile : P.named[k]) : litValue(n.named[k]);
+          if (k === 'seed') val = (val + doc.seed * 7919) | 0;
+          imm[k] = val;
+        }
+        const src = n.args.map(a => lower(a, line));
+        for (const k of Object.keys(P.named)) if (!P.lit.includes(k)) src.push(lower(n.named[k] || { k:'num', v:P.named[k] }, line));
+        imm.dyn = Object.keys(P.named).filter(k => !P.lit.includes(k));
+        return emit('PRIM_' + n.name.toUpperCase(), src, imm, { line });
+      }
+      throw new Error(`line ${line}: IR lowering 불가 노드 '${n.k}'`);
+    }
+    doc.fields.forEach(f => { fieldReg[f.name] = lower(f.expr, f.line); code[fieldReg[f.name]].meta = { ...code[fieldReg[f.name]].meta, field:f.name, hidden:!!f.hidden, from:f.from || null }; });
+    const outputs = {};
+    for (const [name, o] of Object.entries(doc.outs)) {
+      if (name === 'albedo') outputs.albedo = o.expr.args.map(a => lower(a, o.line));
+      else outputs[name] = lower(o.expr, o.line);
+    }
+    if (outputs.rough === undefined) outputs.rough = constant(0.5, 0);
+    if (outputs.metal === undefined) outputs.metal = constant(0, 0);
+    const ir = { version:1, kind:'grain-ssa', params:doc.vars.map(v => ({name:v.name, default:v.value})), code, outputs };
+    validateIR(ir);
+    return ir;
+  }
+
+  function validateIR(ir) {
+    if (!ir || ir.version !== 1 || ir.kind !== 'grain-ssa' || !Array.isArray(ir.code)) throw new Error('IR: 지원하지 않는 형식');
+    ir.code.forEach((x, i) => {
+      if (x.dst !== i) throw new Error(`IR r${i}: dst는 명령 인덱스와 같아야 함`);
+      if (!Array.isArray(x.src) || x.src.some(s => !Number.isInteger(s) || s < 0 || s >= i)) throw new Error(`IR r${i}: 앞선 레지스터만 참조 가능`);
+      if (!/^(CONST|INPUT|PARAM|NEG|NOT|SELECT|ADD|SUB|MUL|DIV|MOD|LT|GT|LE|GE|EQ|NE|AND|OR|FN_[A-Z]+|PRIM_[A-Z0-9_]+)$/.test(x.op)) throw new Error(`IR r${i}: 알 수 없는 opcode ${x.op}`);
+    });
+    const regs = [ir.outputs.height, ...(ir.outputs.albedo || []), ir.outputs.rough, ir.outputs.metal];
+    if (regs.some(r => !Number.isInteger(r) || r < 0 || r >= ir.code.length)) throw new Error('IR: 출력 레지스터가 유효하지 않음');
+    return ir;
+  }
+
+  function compileIR(ir, base) {
+    validateIR(ir);
+    const bin = { ADD:(a,b)=>a+b, SUB:(a,b)=>a-b, MUL:(a,b)=>a*b, DIV:(a,b)=>b===0?0:a/b, MOD:FUNCS.mod,
+      LT:(a,b)=>a<b?1:0, GT:(a,b)=>a>b?1:0, LE:(a,b)=>a<=b?1:0, GE:(a,b)=>a>=b?1:0,
+      EQ:(a,b)=>a===b?1:0, NE:(a,b)=>a!==b?1:0, AND:(a,b)=>(a&&b)?1:0, OR:(a,b)=>(a||b)?1:0 };
+    function evalPixel(u, v, V, out, rho = 0) {
+      const R = new Array(ir.code.length);
+      for (const x of ir.code) {
+        const s = x.src, im = x.imm || {}; let z;
+        if (x.op === 'CONST') z = im.value;
+        else if (x.op === 'INPUT') z = im.name === 'u' ? u : im.name === 'v' ? v : rho;
+        else if (x.op === 'PARAM') z = V[im.index];
+        else if (x.op === 'NEG') z = -R[s[0]];
+        else if (x.op === 'NOT') z = R[s[0]] ? 0 : 1;
+        else if (x.op === 'SELECT') z = R[s[0]] ? R[s[1]] : R[s[2]];
+        else if (x.op in bin) z = bin[x.op](R[s[0]], R[s[1]]);
+        else if (x.op.startsWith('FN_')) { const fn = FUNCS[x.op.slice(3).toLowerCase()]; z = fn(...s.map(q => R[q])); }
+        else if (x.op.startsWith('PRIM_')) {
+          const name = x.op.slice(5).toLowerCase(), P = PRIMS[name], a = {};
+          Object.assign(a, im); delete a.dyn;
+          (im.dyn || []).forEach((k, j) => a[k] = R[s[P.pos.length + j]]);
+          z = PRIM_IMPL[name](...s.slice(0, P.pos.length).map(q => R[q]), a);
+        } else throw new Error(`IR runtime: ${x.op}`);
+        R[x.dst] = z;
+      }
+      out.h = R[ir.outputs.height];
+      [out.ah, out.as, out.av] = ir.outputs.albedo.map(r => R[r]);
+      out.r = R[ir.outputs.rough]; out.m = R[ir.outputs.metal];
+      return R;
+    }
+    return { ...base, ir, evalPixel, irInstructions:ir.code.length };
+  }
+
+  function formatIR(ir) {
+    const ref = r => `r${r}`;
+    const lines = [`grain-ssa v${ir.version}`, ...ir.params.map((p,i) => `p${i} ${p.name} = ${p.default}`)];
+    ir.code.forEach(x => lines.push(`${ref(x.dst)} = ${x.op}${x.src.length ? ' ' + x.src.map(ref).join(' ') : ''}${x.imm ? ' ' + JSON.stringify(x.imm) : ''}${x.meta && x.meta.field ? `  # ${x.meta.field}` : ''}`));
+    lines.push(`OUT_HEIGHT ${ref(ir.outputs.height)}`, `OUT_ALBEDO ${ir.outputs.albedo.map(ref).join(' ')}`, `OUT_ROUGH ${ref(ir.outputs.rough)}`, `OUT_METAL ${ref(ir.outputs.metal)}`);
+    return lines.join('\n');
+  }
+
+  function compile(doc) {
+    const warnings = [];
+    let cost = 0, tileDynFreq = 0;
+    if (doc.vars.length > LIMITS.maxVars) throw new Error(`var 수 ${doc.vars.length} > ${LIMITS.maxVars}`);
+    const userFields = doc.userFieldCount === undefined ? doc.fields.length : doc.userFieldCount;
+    if (userFields > LIMITS.maxFields) throw new Error(`field 수 ${userFields} > ${LIMITS.maxFields}`);
+    for (const o of LIMITS.requiredOuts) if (!doc.outs[o]) throw new Error(`필수 출력 'out ${o}' 없음`);
+
+    const varIndex = {}; doc.vars.forEach((v, i) => varIndex[v.name] = i);
+    const fieldIndex = {};
+    const usedVars = new Set();
+    // 어떤 field가 var(색조 소유권 규약용)에 연결되는지 fixpoint
+    const fieldRefsVar = {};
+
+    // 컴파일된 함수 시그니처: (u, v, V, F) → number   V: var 값 배열, F: field 값 배열
+    function comp(node, ctx) {
+      switch (node.k) {
+        case 'num': { const c = node.v; return () => c; }
+        case 'id': {
+          const n = node.name;
+          if (n === 'u') return (u) => u;
+          if (n === 'v') return (u, v) => v;
+          if (n === 'rho') return () => 0; // canonical IR runtime에서 실제 pixel footprint 입력
+          if (n in CONSTS) { const c = CONSTS[n]; return () => c; }
+          if (n in varIndex) { usedVars.add(n); ctx.refVars.add(n); const i = varIndex[n]; return (u, v, V) => V[i]; }
+          if (n in fieldIndex) { if (fieldRefsVar[n]) ctx.refVars.add('*'); const i = fieldIndex[n]; return (u, v, V, F) => F[i]; }
+          if (n in doc.outs) throw new Error(`line ${ctx.line}: 출력 '${n}'은 수식에서 참조 불가 (field로 빼세요)`);
+          if (doc.fields.some(f => f.name === n)) throw new Error(`line ${ctx.line}: field '${n}'은 뒤에서 선언됨 (앞선 field만 참조 가능)`);
+          if ((doc.macros || []).some(m => m.name === n)) throw new Error(`line ${ctx.line}: '${n}'은 macro — 호출 형태 ${n}(...)로 사용`);
+          throw new Error(`line ${ctx.line}: 알 수 없는 식별자 '${n}'`);
+        }
+        case 'neg': { const a = comp(node.a, ctx); return (u, v, V, F) => -a(u, v, V, F); }
+        case 'not': { const a = comp(node.a, ctx); return (u, v, V, F) => a(u, v, V, F) ? 0 : 1; }
+        case 'tern': { const c = comp(node.c, ctx), a = comp(node.a, ctx), b = comp(node.b, ctx); return (u, v, V, F) => c(u, v, V, F) ? a(u, v, V, F) : b(u, v, V, F); }
+        case 'bin': {
+          const a = comp(node.a, ctx), b = comp(node.b, ctx);
+          switch (node.op) {
+            case '+': return (u, v, V, F) => a(u, v, V, F) + b(u, v, V, F);
+            case '-': return (u, v, V, F) => a(u, v, V, F) - b(u, v, V, F);
+            case '*': return (u, v, V, F) => a(u, v, V, F) * b(u, v, V, F);
+            case '/': return (u, v, V, F) => { const d = b(u, v, V, F); return d === 0 ? 0 : a(u, v, V, F) / d; };
+            case '%': return (u, v, V, F) => FUNCS.mod(a(u, v, V, F), b(u, v, V, F));
+            case '<': return (u, v, V, F) => a(u, v, V, F) < b(u, v, V, F) ? 1 : 0;
+            case '>': return (u, v, V, F) => a(u, v, V, F) > b(u, v, V, F) ? 1 : 0;
+            case '<=': return (u, v, V, F) => a(u, v, V, F) <= b(u, v, V, F) ? 1 : 0;
+            case '>=': return (u, v, V, F) => a(u, v, V, F) >= b(u, v, V, F) ? 1 : 0;
+            case '==': return (u, v, V, F) => a(u, v, V, F) === b(u, v, V, F) ? 1 : 0;
+            case '!=': return (u, v, V, F) => a(u, v, V, F) !== b(u, v, V, F) ? 1 : 0;
+            case '&&': return (u, v, V, F) => (a(u, v, V, F) && b(u, v, V, F)) ? 1 : 0;
+            case '||': return (u, v, V, F) => (a(u, v, V, F) || b(u, v, V, F)) ? 1 : 0;
+          }
+          throw new Error(`line ${ctx.line}: 연산자 '${node.op}'`);
+        }
+        case 'call': {
+          const name = node.name;
+          if (name in FUNCS) {
+            const fn = FUNCS[name];
+            if (Object.keys(node.named).length) throw new Error(`line ${ctx.line}: ${name}()는 이름 인자를 받지 않음`);
+            const args = node.args.map(a => comp(a, ctx));
+            const n = args.length;
+            if (fn.length !== 0 && n !== fn.length && !['min', 'max'].includes(name)) throw new Error(`line ${ctx.line}: ${name}()는 인자 ${fn.length}개 필요, ${n}개 받음`);
+            if (n === 1) { const a0 = args[0]; return (u, v, V, F) => fn(a0(u, v, V, F)); }
+            if (n === 2) { const [a0, a1] = args; return (u, v, V, F) => fn(a0(u, v, V, F), a1(u, v, V, F)); }
+            if (n === 3) { const [a0, a1, a2] = args; return (u, v, V, F) => fn(a0(u, v, V, F), a1(u, v, V, F), a2(u, v, V, F)); }
+            return (u, v, V, F) => fn(...args.map(a => a(u, v, V, F)));
+          }
+          if (name in PRIMS) {
+            const P = PRIMS[name];
+            if (P.tuple) {
+              if (!ctx.allowTuple) throw new Error(`line ${ctx.line}: hsv()는 'out albedo'에서만 사용 가능`);
+              if (node.args.length !== 3) throw new Error(`line ${ctx.line}: hsv(h, s, v) 인자 3개 필요`);
+              const hctx = { ...ctx, refVars: new Set() };
+              const h = comp(node.args[0], hctx), s = comp(node.args[1], ctx), vv = comp(node.args[2], ctx);
+              if (hctx.refVars.size === 0) warnings.push(`line ${ctx.line}: albedo의 색조(h)가 어떤 var에도 연결되어 있지 않음 (재질 변수 소유권 규약)`);
+              hctx.refVars.forEach(x => ctx.refVars.add(x));
+              return { tuple: [h, s, vv] };
+            }
+            if (node.args.length !== P.pos.length) throw new Error(`line ${ctx.line}: ${name}()는 위치 인자 ${P.pos.length}개(${P.pos.join(',')}) 필요, ${node.args.length}개 받음`);
+            for (const k of Object.keys(node.named)) if (!(k in P.named)) throw new Error(`line ${ctx.line}: ${name}()에 알 수 없는 인자 '${k}' (허용: ${Object.keys(P.named).join(', ')})`);
+            // structural literals
+            const lit = {};
+            for (const k of P.lit) {
+              const raw = node.named[k];
+              let val = raw === undefined ? (k === 'tile' ? doc.tile : P.named[k]) : litValue(raw);
+              const wantNum = !(P.enums && P.enums[k]);
+              if (val === undefined || (wantNum && typeof val !== 'number')) throw new Error(`line ${ctx.line}: ${name}()의 '${k}'는 ${wantNum ? '숫자 ' : ''}literal이어야 함 (컴파일 타임 확정)`);
+              if (k === 'oct') { if (!Number.isInteger(val) || val < 1 || val > LIMITS.maxOct) throw new Error(`line ${ctx.line}: oct는 1..${LIMITS.maxOct} 정수 (받음: ${val})`); }
+              if (k === 'seed') { if (!Number.isInteger(val) || val < 0) throw new Error(`line ${ctx.line}: seed는 0 이상 정수`); val = (val + doc.seed * 7919) | 0; }
+              if (k === 'tile') { if (!Number.isInteger(val) || val < 0) throw new Error(`line ${ctx.line}: tile은 0 이상 정수 (0=비주기)`); }
+              if (P.enums && P.enums[k] && !P.enums[k].includes(val)) throw new Error(`line ${ctx.line}: ${name}()의 ${k}는 ${P.enums[k].join('|')} 중 하나 (받음: ${val})`);
+              lit[k] = val;
+            }
+            if (lit.tile > 0) {
+              if ('lac' in lit && !Number.isInteger(lit.lac)) throw new Error(`line ${ctx.line}: tile>0이면 ${name}()의 lac은 정수여야 함 (옥타브 주기 = tile·freq·lac^i 가 정수)`);
+              const fl = node.named.freq === undefined ? P.named.freq : litValue(node.named.freq);
+              if (typeof fl === 'number') { if (!Number.isInteger(lit.tile * fl)) throw new Error(`line ${ctx.line}: tile>0이면 tile·freq(${lit.tile}·${fl})가 정수여야 이음새 없음`); }
+              else tileDynFreq++;
+            }
+            const dyn = {};
+            for (const k of Object.keys(P.named)) if (!P.lit.includes(k)) dyn[k] = node.named[k] ? comp(node.named[k], ctx) : (() => P.named[k]);
+            const pos = node.args.map(a => comp(a, ctx));
+            const c = P.cost(lit); cost += c;
+            const impl = PRIM_IMPL[name];
+            const dynKeys = Object.keys(dyn);
+            if (pos.length === 2) {
+              const [ax, ay] = pos;
+              return (u, v, V, F) => {
+                const a = Object.assign({}, lit);
+                for (const k of dynKeys) a[k] = dyn[k](u, v, V, F);
+                return impl(ax(u, v, V, F), ay(u, v, V, F), a);
+              };
+            }
+            const [ax] = pos;
+            return (u, v, V, F) => {
+              const a = Object.assign({}, lit);
+              for (const k of dynKeys) a[k] = dyn[k](u, v, V, F);
+              return impl(ax(u, v, V, F), a);
+            };
+          }
+          throw new Error(`line ${ctx.line}: 알 수 없는 함수 '${name}'`+((doc.macros||[]).some(m=>m.name===name)?' (macro는 사용 전에 선언되어야 함)':''));
+        }
+      }
+      throw new Error(`line ${ctx.line}: 컴파일 불가 노드`);
+    }
+
+    const fieldFns = [];
+    doc.fields.forEach((f, i) => {
+      if (f.name in fieldIndex || f.name in varIndex) throw new Error(`line ${f.line}: '${f.name}' 중복 선언`);
+      const ctx = { line: f.line, refVars: new Set(), allowTuple: false };
+      const fn = comp(f.expr, ctx);
+      fieldRefsVar[f.name] = ctx.refVars.size > 0;
+      fieldIndex[f.name] = i;
+      fieldFns.push(fn);
+    });
+    const outFns = {};
+    for (const [name, o] of Object.entries(doc.outs)) {
+      const ctx = { line: o.line, refVars: new Set(), allowTuple: name === 'albedo' };
+      const fn = comp(o.expr, ctx);
+      if (name === 'albedo' && !fn.tuple) throw new Error(`line ${o.line}: out albedo는 hsv(h,s,v)여야 함`);
+      if (name !== 'albedo' && fn.tuple) throw new Error(`line ${o.line}: out ${name}는 스칼라여야 함`);
+      outFns[name] = fn;
+    }
+    doc.vars.forEach(v => { if (!usedVars.has(v.name)) warnings.push(`line ${v.line}: var '${v.name}' 미사용`); });
+    if (tileDynFreq) warnings.push(`tile 켬 + freq가 수식인 primitive ${tileDynFreq}곳: tile·freq가 정수가 아니면 이음새 생김 — SEAM 실측치로 확인`);
+    if (cost > LIMITS.maxCost) throw new Error(`픽셀당 비용 ${cost.toFixed(1)} > 예산 ${LIMITS.maxCost} (oct·worley·spots 줄이기)`);
+
+    const V0 = doc.vars.map(v => v.value);
+    const nF = fieldFns.length;
+    const [ah, as, av] = outFns.albedo.tuple;
+    const rf = outFns.rough ? outFns.rough : (() => 0.5);
+    const mf = outFns.metal ? outFns.metal : (() => 0);
+    const hf = outFns.height;
+
+    // 픽셀 평가기: 결과를 out 객체에 씀 (할당 없음)
+    function evalPixel(u, v, V, out) {
+      const F = new Array(nF);
+      for (let i = 0; i < nF; i++) F[i] = fieldFns[i](u, v, V, F);
+      out.h = hf(u, v, V, F);
+      out.ah = ah(u, v, V, F); out.as = as(u, v, V, F); out.av = av(u, v, V, F);
+      out.r = rf(u, v, V, F); out.m = mf(u, v, V, F);
+      return F;
+    }
+    return {
+      evalPixel, vars: doc.vars, V0, cost, warnings, fieldNames: doc.fields.filter(f => !f.hidden).map(f => f.name),
+      hiddenFields: doc.fields.filter(f => f.hidden).length, macroDefs: (doc.macros || []).length, macroInstances: doc.macroInstances || 0, seed: doc.seed, tile: doc.tile,
+    };
+  }
+
+  function build(text) { const doc = parseDSL(text); const expanded = expandMacros(doc); const checked = compile(expanded); const ir = lowerIR(expanded); const prog = compileIR(ir, checked); return { doc, expanded, ir, prog }; }
+
+  // ---------- render helpers ----------
+  function hsv2rgb(h, s, v) {
+    h = ((h % 1) + 1) % 1; s = Math.min(1, Math.max(0, s)); v = Math.min(1, Math.max(0, v));
+    const i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+    switch (i % 6) { case 0: return [v, t, p]; case 1: return [q, v, p]; case 2: return [p, v, t]; case 3: return [p, q, v]; case 4: return [t, p, v]; default: return [v, p, q]; }
+  }
+
+  // 그리드 평가 → 채널 버퍼
+  function evaluate(prog, N, V, viewport) {
+    const H = new Float32Array(N * N), R = new Float32Array(N * N), M = new Float32Array(N * N);
+    const A = new Float32Array(N * N * 3);
+    const out = {}; V = V || prog.V0;
+    const zoom = viewport && Number.isFinite(viewport.zoom) && viewport.zoom > 0 ? viewport.zoom : 1;
+    const centerU = viewport && Number.isFinite(viewport.centerU) ? viewport.centerU : 0.5;
+    const centerV = viewport && Number.isFinite(viewport.centerV) ? viewport.centerV : 0.5;
+    const rho = 1 / (N * zoom);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const u = centerU + ((i + 0.5) / N - 0.5) / zoom;
+      const v = centerV + ((j + 0.5) / N - 0.5) / zoom;
+      const k = j * N + i;
+      prog.evalPixel(u, v, V, out, rho);
+      H[k] = out.h; R[k] = out.r; M[k] = out.m;
+      const rgb = hsv2rgb(out.ah, out.as, out.av);
+      A[k * 3] = rgb[0]; A[k * 3 + 1] = rgb[1]; A[k * 3 + 2] = rgb[2];
+    }
+    return { N, H, R, M, A, viewport: { zoom, centerU, centerV, rho } };
+  }
+
+  // 이음새 실측: 경계 양쪽(u=0 vs u=1, v=0 vs v=1)에서 height·albedo 최대 차이. 0이면 완전 타일.
+  function seamError(prog, N, V, rho = 1 / N) {
+    V = V || prog.V0; let mx = 0; const a = {}, b = {};
+    const cmp = () => { const d = Math.max(Math.abs(a.h - b.h), Math.abs(a.av - b.av), Math.abs(a.as - b.as), Math.abs(((a.ah - b.ah) % 1 + 1.5) % 1 - 0.5)); if (d > mx) mx = d; };
+    for (let i = 0; i < N; i++) {
+      const t = (i + 0.5) / N;
+      prog.evalPixel(0, t, V, a, rho); prog.evalPixel(1, t, V, b, rho); cmp();
+      prog.evalPixel(t, 0, V, a, rho); prog.evalPixel(t, 1, V, b, rho); cmp();
+    }
+    return mx;
+  }
+  return { LIMITS, PRIMS, FUNCS, parseDSL, expandMacros, compile, lowerIR, validateIR, compileIR, formatIR, build, evaluate, seamError, hsv2rgb, _n: { gnoise, fbm, worley, spots, hashi } };
+})();
+
+
+// GRAIN render: 채널 버퍼 → 픽셀. 4개 뷰(shaded / albedo / height / normal).
+const GRAIN_RENDER = (() => {
+  function normals(buf, relief) {
+    const { N, H } = buf; const Nx = new Float32Array(N * N), Ny = new Float32Array(N * N), Nz = new Float32Array(N * N);
+    const s = relief * N * 0.06;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = j * N + i;
+      const l = H[j * N + ((i - 1 + N) % N)], r = H[j * N + ((i + 1) % N)];
+      const u = H[((j - 1 + N) % N) * N + i], d = H[((j + 1) % N) * N + i];
+      let nx = -(r - l) * s, ny = -(d - u) * s, nz = 1;
+      const len = Math.hypot(nx, ny, nz); Nx[k] = nx / len; Ny[k] = ny / len; Nz[k] = nz / len;
+    }
+    return { Nx, Ny, Nz };
+  }
+  // light: azimuth(turn 0..1), elevation(0..1)
+  function shade(buf, nrm, light) {
+    const { N, A, R, M } = buf; const out = new Uint8ClampedArray(N * N * 4);
+    const az = light.az * Math.PI * 2, el = light.el * Math.PI * 0.5;
+    const lx = Math.sin(az) * Math.cos(el), ly = -Math.cos(az) * Math.cos(el), lz = Math.sin(el);
+    const vx = 0, vy = 0, vz = 1;
+    let hx = lx + vx, hy = ly + vy, hz = lz + vz; const hl = Math.hypot(hx, hy, hz); hx /= hl; hy /= hl; hz /= hl;
+    const amb = 0.28;
+    for (let k = 0; k < N * N; k++) {
+      const nx = nrm.Nx[k], ny = nrm.Ny[k], nz = nrm.Nz[k];
+      const ndl = Math.max(0, nx * lx + ny * ly + nz * lz);
+      const ndh = Math.max(0, nx * hx + ny * hy + nz * hz);
+      const rough = Math.min(1, Math.max(0.04, R[k])), metal = Math.min(1, Math.max(0, M[k]));
+      const shin = 2 / (rough * rough * rough * rough) - 1;
+      const spec = Math.pow(ndh, Math.min(shin, 400)) * (1 - rough * 0.85) * (shin + 8) / 24;
+      const ar = A[k * 3], ag = A[k * 3 + 1], ab = A[k * 3 + 2];
+      const F0r = metal * ar + (1 - metal) * 0.04, F0g = metal * ag + (1 - metal) * 0.04, F0b = metal * ab + (1 - metal) * 0.04;
+      const dr = ar * (1 - metal), dg = ag * (1 - metal), db = ab * (1 - metal);
+      let cr = dr * (amb + ndl * 0.95) + F0r * spec * ndl * 3.5;
+      let cg = dg * (amb + ndl * 0.95) + F0g * spec * ndl * 3.5;
+      let cb = db * (amb + ndl * 0.95) + F0b * spec * ndl * 3.5;
+      // metals: 환경 반사 근사
+      cr += metal * ar * 0.35 * (0.6 + 0.4 * nz); cg += metal * ag * 0.35 * (0.6 + 0.4 * nz); cb += metal * ab * 0.35 * (0.6 + 0.4 * nz);
+      out[k * 4] = 255 * Math.pow(Math.min(1, cr), 1 / 2.2); out[k * 4 + 1] = 255 * Math.pow(Math.min(1, cg), 1 / 2.2); out[k * 4 + 2] = 255 * Math.pow(Math.min(1, cb), 1 / 2.2); out[k * 4 + 3] = 255;
+    }
+    return out;
+  }
+  function albedoImg(buf) {
+    const { N, A } = buf; const out = new Uint8ClampedArray(N * N * 4);
+    for (let k = 0; k < N * N; k++) { out[k * 4] = 255 * Math.pow(A[k * 3], 1 / 2.2); out[k * 4 + 1] = 255 * Math.pow(A[k * 3 + 1], 1 / 2.2); out[k * 4 + 2] = 255 * Math.pow(A[k * 3 + 2], 1 / 2.2); out[k * 4 + 3] = 255; }
+    return out;
+  }
+  function heightImg(buf) {
+    const { N, H } = buf; const out = new Uint8ClampedArray(N * N * 4);
+    for (let k = 0; k < N * N; k++) { const g = 255 * Math.min(1, Math.max(0, H[k])); out[k * 4] = out[k * 4 + 1] = out[k * 4 + 2] = g; out[k * 4 + 3] = 255; }
+    return out;
+  }
+  function normalImg(nrm, N) {
+    const out = new Uint8ClampedArray(N * N * 4);
+    for (let k = 0; k < N * N; k++) { out[k * 4] = 128 + 127 * nrm.Nx[k]; out[k * 4 + 1] = 128 - 127 * nrm.Ny[k]; out[k * 4 + 2] = 128 + 127 * nrm.Nz[k]; out[k * 4 + 3] = 255; }
+    return out;
+  }
+  function roughImg(buf) {
+    const { N, R } = buf; const out = new Uint8ClampedArray(N * N * 4);
+    for (let k = 0; k < N * N; k++) { const g = 255 * Math.min(1, Math.max(0, R[k])); out[k * 4] = out[k * 4 + 1] = out[k * 4 + 2] = g; out[k * 4 + 3] = 255; }
+    return out;
+  }
+  return { normals, shade, albedoImg, heightImg, normalImg, roughImg };
+})();
+
+
+// Native WebGL2 material preview. Current GRAIN buffers become GPU PBR textures;
+// height drives both vertex displacement and tangent-space surface normals.
+const GRAIN_3D = (() => {
+  const clamp01 = x => Math.min(1, Math.max(0, x));
+
+  function perspective(fovy, aspect, near, far) {
+    const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+    return new Float32Array([
+      f / aspect, 0, 0, 0,
+      0, f, 0, 0,
+      0, 0, (far + near) * nf, -1,
+      0, 0, 2 * far * near * nf, 0,
+    ]);
+  }
+  function lookAt(eye, center = [0,0,0], up = [0,1,0]) {
+    let zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
+    let l = Math.hypot(zx, zy, zz) || 1; zx /= l; zy /= l; zz /= l;
+    let xx = up[1] * zz - up[2] * zy, xy = up[2] * zx - up[0] * zz, xz = up[0] * zy - up[1] * zx;
+    l = Math.hypot(xx, xy, xz) || 1; xx /= l; xy /= l; xz /= l;
+    const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+    return new Float32Array([
+      xx, yx, zx, 0,
+      xy, yy, zy, 0,
+      xz, yz, zz, 0,
+      -(xx*eye[0] + xy*eye[1] + xz*eye[2]),
+      -(yx*eye[0] + yy*eye[1] + yz*eye[2]),
+      -(zx*eye[0] + zy*eye[1] + zz*eye[2]), 1,
+    ]);
+  }
+  function multiply4(a, b) {
+    const out = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      out[c*4+r] = a[r]*b[c*4] + a[4+r]*b[c*4+1] + a[8+r]*b[c*4+2] + a[12+r]*b[c*4+3];
+    }
+    return out;
+  }
+
+  function cubeMesh(seg = 128) {
+    const data = [], indices = [];
+    const faces = [
+      { n:[0,0,1],  t:[1,0,0],  b:[0,1,0] },
+      { n:[0,0,-1], t:[-1,0,0], b:[0,1,0] },
+      { n:[1,0,0],  t:[0,0,-1], b:[0,1,0] },
+      { n:[-1,0,0], t:[0,0,1],  b:[0,1,0] },
+      { n:[0,1,0],  t:[1,0,0],  b:[0,0,-1] },
+      { n:[0,-1,0], t:[1,0,0],  b:[0,0,1] },
+    ];
+    const orientUV = [
+      (u,v)=>[u,v], (u,v)=>[1-v,u], (u,v)=>[1-u,v],
+      (u,v)=>[1-u,1-v], (u,v)=>[v,1-u], (u,v)=>[u,1-v],
+    ];
+    for (let faceIndex=0; faceIndex<faces.length; faceIndex++) {
+      const face=faces[faceIndex];
+      const base = data.length / 11;
+      for (let y = 0; y <= seg; y++) for (let x = 0; x <= seg; x++) {
+        const u=x/seg, v=y/seg, sx=(u-.5)*2, sy=(v-.5)*2;
+        const [tu,tv]=orientUV[faceIndex](u,v);
+        const px=face.n[0]+face.t[0]*sx+face.b[0]*sy;
+        const py=face.n[1]+face.t[1]*sx+face.b[1]*sy;
+        const pz=face.n[2]+face.t[2]*sx+face.b[2]*sy;
+        data.push(px,py,pz, ...face.n, ...face.t, tu,tv);
+      }
+      for (let y = 0; y < seg; y++) for (let x = 0; x < seg; x++) {
+        const a=base+y*(seg+1)+x, b=a+seg+1;
+        indices.push(a,a+1,b,b,a+1,b+1);
+      }
+    }
+    return { data:new Float32Array(data), indices:new Uint32Array(indices) };
+  }
+
+  const VERT = `#version 300 es
+precision highp float;
+in vec3 aPosition;
+in vec3 aNormal;
+in vec3 aTangent;
+in vec2 aUv;
+uniform mat4 uViewProjection;
+uniform sampler2D uHeight;
+uniform float uDisplacement;
+out vec3 vWorld;
+out vec3 vNormal;
+out vec3 vTangent;
+out vec2 vUv;
+void main(){
+  float height = texture(uHeight, aUv).r - 0.5;
+  vec3 position = aPosition + aNormal * height * uDisplacement;
+  vWorld = position;
+  vNormal = aNormal;
+  vTangent = aTangent;
+  vUv = aUv;
+  gl_Position = uViewProjection * vec4(position, 1.0);
+}`;
+
+  const FRAG = `#version 300 es
+precision highp float;
+in vec3 vWorld;
+in vec3 vNormal;
+in vec3 vTangent;
+in vec2 vUv;
+uniform sampler2D uAlbedo;
+uniform sampler2D uHeight;
+uniform sampler2D uRough;
+uniform sampler2D uMetal;
+uniform vec2 uTexel;
+uniform vec3 uEye;
+uniform vec3 uLightDir;
+uniform float uBump;
+uniform float uRepeat;
+uniform float uExposure;
+uniform float uAoStrength;
+out vec4 fragColor;
+const float PI = 3.14159265359;
+vec3 fresnelSchlick(float cosTheta, vec3 f0){ return f0 + (1.0-f0)*pow(1.0-cosTheta,5.0); }
+float distributionGGX(vec3 n, vec3 h, float rough){
+  float a=rough*rough, a2=a*a, ndh=max(dot(n,h),0.0), d=ndh*ndh*(a2-1.0)+1.0;
+  return a2/max(PI*d*d,0.0001);
+}
+float geometrySchlick(float nd, float rough){ float k=(rough+1.0); k=k*k/8.0; return nd/max(nd*(1.0-k)+k,0.0001); }
+vec3 studioEnv(vec3 d, float rough){
+  float sky=clamp(d.y*0.5+0.5,0.0,1.0);
+  vec3 base=mix(vec3(0.018,0.022,0.030),vec3(0.34,0.39,0.46),pow(sky,0.72));
+  float horizon=exp(-24.0*d.y*d.y);
+  base+=vec3(0.12,0.105,0.085)*horizon;
+  float sharp=mix(150.0,7.0,rough);
+  float key=pow(max(dot(d,normalize(vec3(0.58,0.64,0.50))),0.0),sharp);
+  float strip=pow(max(dot(d,normalize(vec3(-0.76,0.38,0.53))),0.0),mix(90.0,5.0,rough));
+  float rim=pow(max(dot(d,normalize(vec3(0.10,0.45,-0.89))),0.0),mix(120.0,6.0,rough));
+  return base + vec3(1.30,1.15,0.94)*key + vec3(0.42,0.55,0.72)*strip + vec3(0.42,0.48,0.62)*rim;
+}
+float heightAO(vec2 uv, float h0){
+  vec2 p=uTexel*2.5;
+  float occ=0.0;
+  occ+=max(texture(uHeight,uv+vec2( p.x,0)).r-h0-0.003,0.0);
+  occ+=max(texture(uHeight,uv+vec2(-p.x,0)).r-h0-0.003,0.0);
+  occ+=max(texture(uHeight,uv+vec2(0, p.y)).r-h0-0.003,0.0);
+  occ+=max(texture(uHeight,uv+vec2(0,-p.y)).r-h0-0.003,0.0);
+  return 1.0-clamp(occ*1.55*uAoStrength,0.0,0.52);
+}
+void main(){
+  vec2 uv = vUv * uRepeat;
+  vec3 albedo = pow(texture(uAlbedo, uv).rgb,vec3(2.2));
+  float rough = clamp(texture(uRough, uv).r, 0.05, 1.0);
+  float metal = clamp(texture(uMetal, uv).r, 0.0, 1.0);
+  float h0=texture(uHeight,uv).r;
+  float hx = texture(uHeight, uv+vec2(uTexel.x,0)).r - texture(uHeight, uv-vec2(uTexel.x,0)).r;
+  float hy = texture(uHeight, uv+vec2(0,uTexel.y)).r - texture(uHeight, uv-vec2(0,uTexel.y)).r;
+  vec3 n0=normalize(vNormal), t=normalize(vTangent), b=normalize(cross(n0,t));
+  vec3 n=normalize(n0 - t*hx*uBump*uRepeat - b*hy*uBump*uRepeat);
+  vec3 v=normalize(uEye-vWorld), l=normalize(uLightDir), h=normalize(v+l);
+  float ndl=max(dot(n,l),0.0), ndv=max(dot(n,v),0.001), hdv=max(dot(h,v),0.0);
+  float ao=heightAO(uv,h0);
+  vec3 f0=mix(vec3(0.04),albedo,metal), f=fresnelSchlick(hdv,f0);
+  float d=distributionGGX(n,h,rough);
+  float g=geometrySchlick(ndv,rough)*geometrySchlick(ndl,rough);
+  vec3 spec=d*g*f/max(4.0*ndv*max(ndl,0.001),0.001);
+  vec3 kd=(1.0-f)*(1.0-metal);
+  vec3 color=(kd*albedo/PI+spec)*ndl*3.55;
+  vec3 hemi=mix(vec3(0.035,0.042,0.052),vec3(0.34,0.37,0.40),clamp(n.y*0.5+0.5,0.0,1.0));
+  color+=kd*albedo*hemi*ao;
+  vec3 fillDir=normalize(vec3(-0.72,0.46,-0.50));
+  float fill=max(dot(n,fillDir),0.0);
+  color+=kd*albedo*fill*0.28*ao;
+  vec3 reflected=reflect(-v,n);
+  vec3 envSpec=studioEnv(reflected,rough);
+  color+=envSpec*fresnelSchlick(ndv,f0)*mix(0.92,0.22,rough)*mix(ao,1.0,0.55);
+  color*=uExposure;
+  color=(color*(2.51*color+0.03))/(color*(2.43*color+0.59)+0.14);
+  color=pow(clamp(color,0.0,1.0),vec3(1.0/2.2));
+  fragColor=vec4(color,1.0);
+}`;
+
+  function create(canvas) {
+    const fail = error => {
+      canvas.parentElement.classList.add('no-webgl');
+      const note=canvas.parentElement.querySelector('.webgl-note');
+      if (error) {
+        console.error('GRAIN 3D preview:', error);
+        if(note) note.textContent=`3D 프리뷰 초기화 오류\n${error && error.message ? error.message : String(error)}`;
+      }
+      return { available:false, update(){}, draw(){}, setMesh(){}, reset(){} };
+    };
+    const gl = canvas.getContext('webgl2', { antialias:true, alpha:true, premultipliedAlpha:false });
+    if (!gl) return fail();
+    try {
+      const shader = (type, source) => {
+        const s=gl.createShader(type); gl.shaderSource(s,source); gl.compileShader(s);
+        if (!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+        return s;
+      };
+      const linkProgram=(vs,fs)=>{
+        const p=gl.createProgram();
+        gl.attachShader(p,shader(gl.VERTEX_SHADER,vs)); gl.attachShader(p,shader(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(p);
+        if (!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+        return p;
+      };
+      const program=linkProgram(VERT,FRAG);
+      gl.useProgram(program);
+
+      const loc = name => gl.getUniformLocation(program,name);
+      const U = {
+        vp:loc('uViewProjection'), albedo:loc('uAlbedo'), height:loc('uHeight'), rough:loc('uRough'), metal:loc('uMetal'),
+        texel:loc('uTexel'), eye:loc('uEye'), light:loc('uLightDir'), bump:loc('uBump'), displacement:loc('uDisplacement'),
+        repeat:loc('uRepeat'), exposure:loc('uExposure'), ao:loc('uAoStrength'),
+      };
+      const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic')||gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+      const maxAnisotropy=anisotropy?Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)):1;
+      const makeTexture = (unit, internal, format, initial) => {
+        const texture=gl.createTexture(); gl.activeTexture(gl.TEXTURE0+unit); gl.bindTexture(gl.TEXTURE_2D,texture);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+        if(anisotropy) gl.texParameterf(gl.TEXTURE_2D,anisotropy.TEXTURE_MAX_ANISOTROPY_EXT,maxAnisotropy);
+        gl.texImage2D(gl.TEXTURE_2D,0,internal,1,1,0,format,gl.UNSIGNED_BYTE,new Uint8Array(initial));
+        gl.generateMipmap(gl.TEXTURE_2D);
+        return { texture,unit,internal,format };
+      };
+      const textures = {
+        albedo:makeTexture(0,gl.RGB8,gl.RGB,[128,128,128]),
+        height:makeTexture(1,gl.R8,gl.RED,[128]), rough:makeTexture(2,gl.R8,gl.RED,[180]), metal:makeTexture(3,gl.R8,gl.RED,[0]),
+      };
+      gl.uniform1i(U.albedo,0); gl.uniform1i(U.height,1); gl.uniform1i(U.rough,2); gl.uniform1i(U.metal,3);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+
+      let vao=null, vertexBuffer=null, indexBuffer=null, indexCount=0, meshKind='cube', sourceN=1, lastOptions=null;
+      const camera={ yaw:.62, pitch:.36, distance:4.1 };
+      function setMesh() {
+        meshKind='cube';
+        const mesh=cubeMesh();
+        if (vao) { gl.deleteVertexArray(vao); gl.deleteBuffer(vertexBuffer); gl.deleteBuffer(indexBuffer); }
+        vao=gl.createVertexArray(); gl.bindVertexArray(vao);
+        vertexBuffer=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer); gl.bufferData(gl.ARRAY_BUFFER,mesh.data,gl.STATIC_DRAW);
+        indexBuffer=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);
+        const stride=11*4;
+        [['aPosition',3,0],['aNormal',3,3],['aTangent',3,6],['aUv',2,9]].forEach(([name,size,offset])=>{
+          const a=gl.getAttribLocation(program,name); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a,size,gl.FLOAT,false,stride,offset*4);
+        });
+        indexCount=mesh.indices.length; gl.bindVertexArray(null); reset();
+      }
+      function reset() {
+        camera.yaw=.62; camera.pitch=.36; camera.distance=4.1;
+        draw();
+      }
+      function upload(target, data, n) {
+        gl.activeTexture(gl.TEXTURE0+target.unit); gl.bindTexture(gl.TEXTURE_2D,target.texture);
+        gl.texImage2D(gl.TEXTURE_2D,0,target.internal,n,n,0,target.format,gl.UNSIGNED_BYTE,data);
+        gl.generateMipmap(gl.TEXTURE_2D);
+      }
+      function update(buf) {
+        sourceN=buf.N;
+        const albedo=new Uint8Array(buf.N*buf.N*3), height=new Uint8Array(buf.N*buf.N), rough=new Uint8Array(buf.N*buf.N), metal=new Uint8Array(buf.N*buf.N);
+        for (let i=0;i<buf.N*buf.N;i++) {
+          albedo[i*3]=Math.round(clamp01(buf.A[i*3])*255); albedo[i*3+1]=Math.round(clamp01(buf.A[i*3+1])*255); albedo[i*3+2]=Math.round(clamp01(buf.A[i*3+2])*255);
+          height[i]=Math.round(clamp01(buf.H[i])*255); rough[i]=Math.round(clamp01(buf.R[i])*255); metal[i]=Math.round(clamp01(buf.M[i])*255);
+        }
+        upload(textures.albedo,albedo,buf.N); upload(textures.height,height,buf.N); upload(textures.rough,rough,buf.N); upload(textures.metal,metal,buf.N);
+      }
+      function resize() {
+        const dpr=Math.min(2,typeof devicePixelRatio==='number'?devicePixelRatio:1), rect=canvas.getBoundingClientRect();
+        const w=Math.max(1,Math.round(rect.width*dpr)), h=Math.max(1,Math.round(rect.height*dpr));
+        if (canvas.width!==w||canvas.height!==h) { canvas.width=w; canvas.height=h; }
+        gl.viewport(0,0,w,h); return w/h;
+      }
+      function draw(options) {
+        if (options) lastOptions=options;
+        if (!lastOptions||!vao) return;
+        const aspect=resize(), cp=Math.cos(camera.pitch);
+        const eye=[camera.distance*cp*Math.sin(camera.yaw),camera.distance*Math.sin(camera.pitch),camera.distance*cp*Math.cos(camera.yaw)];
+        const vp=multiply4(perspective(Math.PI/4,aspect,.05,20),lookAt(eye));
+        const az=lastOptions.light.az*Math.PI*2, el=lastOptions.light.el*Math.PI*.5, ce=Math.cos(el);
+        const light=[Math.sin(az)*ce,Math.sin(el),Math.cos(az)*ce];
+        gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+
+        gl.useProgram(program); gl.uniformMatrix4fv(U.vp,false,vp); gl.uniform3fv(U.eye,eye); gl.uniform3fv(U.light,light);
+        gl.uniform2f(U.texel,1/sourceN,1/sourceN); gl.uniform1f(U.repeat,lastOptions.repeat||1); gl.uniform1f(U.exposure,1.24);
+        gl.uniform1f(U.bump,lastOptions.relief*lastOptions.zoom*sourceN*.06);
+        gl.uniform1f(U.displacement,lastOptions.relief*.055); gl.uniform1f(U.ao,Math.min(1.5,lastOptions.relief*1.35));
+        gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+        gl.bindVertexArray(vao); gl.drawElements(gl.TRIANGLES,indexCount,gl.UNSIGNED_INT,0); gl.bindVertexArray(null);
+      }
+
+      let drag=null;
+      canvas.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,yaw:camera.yaw,pitch:camera.pitch}; canvas.setPointerCapture(e.pointerId); });
+      canvas.addEventListener('pointermove',e=>{ if(!drag)return; camera.yaw=drag.yaw+(e.clientX-drag.x)*.009; camera.pitch=Math.max(-1.15,Math.min(1.15,drag.pitch+(e.clientY-drag.y)*.009)); draw(); });
+      const end=e=>{ drag=null; if(canvas.hasPointerCapture&&canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId); };
+      canvas.addEventListener('pointerup',end); canvas.addEventListener('pointercancel',end);
+      canvas.addEventListener('wheel',e=>{ e.preventDefault(); camera.distance=Math.max(1.65,Math.min(5.5,camera.distance*Math.exp(e.deltaY*.001))); draw(); },{passive:false});
+      canvas.addEventListener('dblclick',reset);
+      if (typeof ResizeObserver!=='undefined') new ResizeObserver(()=>draw()).observe(canvas);
+      else if (typeof window!=='undefined') window.addEventListener('resize',()=>draw());
+      setMesh();
+      return { available:true, update, draw, setMesh, reset };
+    } catch (error) { return fail(error); }
+  }
+  return { create };
+})();
+
+
+const GRAIN_EXAMPLES = [
+{ id: 'ceramic', name: 'CRACKLE CERAMIC', src: `# 빙열 유약 도자기 — 유약의 흐림, 두 규모의 빙열, 미세한 기포를 겹친 완성 재질
+seed = 17
+tile = 1
+var glaze_h = 0.53
+var glaze_s = 0.42
+var glaze_v = 0.72
+var crackle = 0.72
+var age     = 0.30
+
+macro crack_net(x, y, freq=15, width=0.050):
+  wx = x + 0.045*(fbm(x, y, freq=3, oct=3, seed=1) - 0.5)
+  wy = y + 0.045*(fbm(y, x, freq=3, oct=3, seed=2) - 0.5)
+  edge = worley(wx, wy, freq=freq, jitter=1, out=edge, seed=3)
+  return 1 - smoothstep(0.004, width, edge)
+
+field flow    = fbm(u, v, freq=3, oct=4, gain=0.55, seed=5)
+field cloud   = fbm(u, v, freq=8, oct=3, gain=0.55, seed=6)
+field broad   = crack_net(u, v, freq=15, width=0.052)
+field fine    = crack_net(u, v, freq=41, width=0.038, seed=11)
+field crazing = clamp(crackle*(broad + 0.32*fine), 0, 1)
+field speck   = spots(u, v, freq=68, prob=0.13, radius=0.20, seed=19)
+field pinhole = spots(u, v, freq=33, prob=0.08, radius=0.16, seed=23)
+field h       = clamp(0.52 + 0.045*(flow-0.5) + 0.018*speck - 0.11*crazing - 0.055*pinhole, 0, 1)
+
+out height = h
+out albedo = hsv(glaze_h + 0.018*(cloud-0.5), clamp(glaze_s*(0.90 + 0.16*flow) - 0.08*age*speck, 0, 1), clamp(glaze_v*(0.78 + 0.30*h + 0.07*cloud) * (1 - 0.48*crazing) * (1 - 0.20*pinhole), 0, 1))
+out rough = clamp(0.20 + 0.44*crazing + 0.25*pinhole + 0.12*age*cloud, 0, 1)
+out metal = 0
+` },
+
+{ id: 'leather', name: 'FULL-GRAIN LEATHER', src: `# 가죽 — macro 3개: 워프 좌표 / 2단 자기유사 주름 / 모공. 재질은 macro 조합.
+seed = 3
+tile = 1
+var base_h = 0.06
+var base_s = 0.62
+var base_v = 0.40
+var wear   = 0.35
+var grain  = 1.0
+
+macro warp(x, y, amt=0.09, freq=5):            # 도메인 워프 1축 (직선 경계 제거)
+  return x + amt*(fbm(x, y, freq=freq, oct=3, seed=1) - 0.5)
+
+macro creases(x, y, scale=1, depth=1):         # 주름 구획: 같은 규칙을 11 / 30 두 스케일로
+  wx = warp(x, y)
+  wy = warp(y, x, seed=1)
+  big   = worley(wx, wy, freq=11*scale, jitter=1, out=edge, seed=4)
+  small = worley(wx, wy, freq=30*scale, jitter=1, out=edge, seed=5)
+  return depth*(0.7*(1 - smoothstep(0.0, 0.16, big)) + 0.35*(1 - smoothstep(0.0, 0.14, small)))
+
+macro pores(x, y, scale=1, prob=0.22):
+  return spots(x, y, freq=70*scale, prob=prob, radius=0.26, seed=7)
+
+field swell  = fbm(u, v, freq=3, oct=3, gain=0.5, seed=1)                  # 패널 굴곡
+field crease = creases(u, v, scale=grain)
+field micro  = fbm(u, v, freq=90, oct=3, gain=0.55, seed=6)      # 세포 안 미세 요철
+field pore   = pores(u, v, scale=grain)
+field scuff  = smoothstep(0.55, 0.8, fbm(u, v, freq=4, oct=4, seed=8)) * wear
+field h      = clamp(0.5 + 0.2*(swell-0.5) - 0.22*crease + 0.10*(micro-0.5) - 0.12*pore, 0, 1)
+
+out height = h
+out albedo = hsv(base_h + 0.01*(swell-0.5), base_s*(1-0.5*scuff), base_v*(0.7 + 0.3*h + 0.35*scuff))
+out rough  = clamp(0.62 + 0.15*crease - 0.25*scuff, 0, 1)
+` },
+
+{ id: 'saddle', name: 'SADDLE LEATHER PANEL', src: `# 새들 가죽 패널 — 박음질 경로는 랜덤이 아니라 정사각형 가장자리에 묶인다.
+seed = 12
+tile = 1
+var base_h = 0.05
+var base_s = 0.70
+var base_v = 0.30
+var thread_h = 0.11
+var wear   = 0.5
+
+macro warp(x, y, amt=0.09):
+  return x + amt*(fbm(x, y, freq=5, oct=3, seed=1) - 0.5)
+
+macro creases(x, y, depth=1):
+  wx = warp(x, y)
+  wy = warp(y, x, seed=1)
+  big   = worley(wx, wy, freq=11, jitter=1, out=edge, seed=4)
+  small = worley(wx, wy, freq=30, jitter=1, out=edge, seed=5)
+  return depth*(0.7*(1 - smoothstep(0.0, 0.16, big)) + 0.35*(1 - smoothstep(0.0, 0.14, small)))
+
+macro pores(x, y, prob=0.22):
+  return spots(x, y, freq=70, prob=prob, radius=0.26, seed=7)
+
+macro stitch_row(along, across, pos, pitch=22, w=0.010):
+  cell      = floor(along*pitch)
+  local     = fract(along*pitch)
+  center    = 0.50 + 0.10*(hash(cell, seed=1) - 0.5)       # 개별 실밥의 앞뒤 오차만 허용
+  half_len  = 0.22 + 0.05*(hash(cell, seed=2) - 0.5)
+  diagonal  = (local-center)*0.020                         # 짧은 대각선 실밥
+  segment   = 1 - smoothstep(half_len*0.82, half_len, abs(local-center))
+  thickness = 1 - smoothstep(w*0.55, w*(1.15 + 0.22*hash(cell, seed=3)), abs(across-pos-diagonal))
+  corner    = smoothstep(pos*0.72, pos*1.04, along) * (1 - smoothstep(1-pos*1.04, 1-pos*0.72, along))
+  return segment * thickness * corner
+
+field crease = creases(u, v)
+field pore   = pores(u, v)
+field micro  = fbm(u, v, freq=90, oct=3, seed=6)
+field tone   = fbm(u, v, freq=4, oct=4, seed=10)
+
+# 정사각형의 최우·최좌·상·하단 중 가장 가까운 경계까지의 거리.
+# 이 한 값으로 사방의 홈, 박음질, 가장자리 마모가 같은 패널 형태를 공유한다.
+field edge_d = min(min(u, 1-u), min(v, 1-v))
+field groove = 1 - smoothstep(0.004, 0.014, abs(edge_d - 0.085))
+field press  = 1 - smoothstep(0.006, 0.020, abs(edge_d - 0.145))
+
+field st_top   = stitch_row(u, v,   0.085, seed=1)
+field st_right = stitch_row(v, 1-u, 0.085, seed=2)
+field st_bot   = stitch_row(1-u, 1-v, 0.085, seed=3)
+field st_left  = stitch_row(1-v, u, 0.085, seed=4)
+field st       = max(max(st_top, st_right), max(st_bot, st_left))
+
+field edge_rub   = (1 - smoothstep(0.015, 0.125, edge_d)) * smoothstep(0.38, 0.62, fbm(u, v, freq=9, oct=3, seed=20)) * wear
+field center_rub = smoothstep(0.18, 0.38, edge_d) * smoothstep(0.56, 0.74, fbm(u, v, freq=4, oct=4, seed=21)) * wear
+field wearm      = clamp(edge_rub + center_rub, 0, 1)
+field h          = clamp(0.51 - 0.20*crease + 0.09*(micro-0.5) - 0.12*pore - 0.26*groove - 0.08*press + 0.48*st + 0.08*wearm, 0, 1)
+
+out height = h
+out albedo = hsv(select(st > 0.45, thread_h, base_h + 0.012*(tone-0.5) + 0.022*wearm), select(st > 0.45, 0.36, base_s*(1-0.55*wearm)), select(st > 0.45, 0.78, base_v*(0.72 + 0.28*h + 0.55*wearm)))
+out rough  = clamp(select(st > 0.45, 0.82, 0.60 + 0.15*crease + 0.10*groove - 0.28*wearm), 0, 1)
+` },
+
+{ id: 'oak', name: 'QUARTER-SAWN OAK', src: `# 나무 — 나이테(워프된 축 거리) × 이방성 섬유 × 도관 × 방사조직. 널판은 타일링 안 함(축 거리는 비주기) → SEAM으로 확인
+seed = 11
+var base_h = 0.085
+var base_s = 0.55
+var base_v = 0.62
+var ring_freq = 9
+var fig = 0.6
+
+macro rings(x, y, freq=9):                        # 세로 결을 따라 느리게 휘는 좁은 만재대
+  wx    = x + 0.045*(fbm(x, y*0.18, freq=2, oct=3, seed=1) - 0.5)
+  drift = 0.55*(fbm(x*0.7, y*0.16, freq=2, oct=3, seed=2) - 0.5)
+  r     = 0.5 + 0.5*sin(TAU*(wx*freq + drift))
+  return pow(r, 5)
+
+macro fibers(x, y, aniso=40):                     # u축으로 압축한 fbm = 이방성 섬유
+  return fbm(x*aniso, y*1.2, freq=1, oct=3, gain=0.6, seed=3)
+
+field late   = rings(u, v, freq=ring_freq)
+field fiber  = fibers(u, v, aniso=52)
+field tone   = fbm(u, v, freq=3, oct=4, gain=0.55, seed=8)
+field vessel = spots(u*4.5, v*0.35, freq=16, prob=0.30, radius=0.20, seed=4)
+field ray    = spots(u*0.65, v*5.5, freq=13, prob=0.22, radius=0.19, seed=9) * fig
+
+out height = clamp(0.5 - 0.055*late + 0.025*(fiber-0.5) - 0.05*vessel + 0.022*ray, 0, 1)
+out albedo = hsv(base_h - 0.014*late + 0.006*(tone-0.5), clamp(base_s*(0.94 + 0.22*late - 0.12*ray), 0, 1), clamp(base_v*(0.70 + 0.24*tone - 0.23*late - 0.15*vessel + 0.17*ray), 0, 1))
+out rough  = clamp(0.48 + 0.13*late + 0.10*vessel - 0.09*ray + 0.05*fiber, 0, 1)
+` },
+
+{ id: 'granite', name: 'GRANITE', src: `# 화강암 — 광물 입자(worley id) 3종 착색 × 2스케일 입자 × 결정 요철
+seed = 5
+tile = 1
+var base_h = 0.08
+var base_s = 0.10
+var base_v = 0.75
+var mica_h = 0.62
+var grain  = 1.0
+
+macro grain_id(x, y, freq=22):
+  return worley(x, y, freq=freq, jitter=1, out=id, seed=1)
+
+field id1   = grain_id(u, v, freq=22*grain)
+field crack = 1 - smoothstep(0.0, 0.05, worley(u, v, freq=22*grain, jitter=1, out=edge, seed=1))
+field id2   = grain_id(u, v, freq=48*grain, seed=1)             # 같은 규칙, 약 2배 스케일
+field kind  = select(id1 < 0.55, 0, select(id1 < 0.9, 1, 2))   # 0 장석 1 석영 2 운모
+field fine  = fbm(u, v, freq=120, oct=3, gain=0.6, seed=3)
+
+out height = clamp(0.5 + 0.12*(id1-0.5) + 0.06*(id2-0.5) - 0.15*crack + 0.05*(fine-0.5), 0, 1)
+out albedo = hsv(select(kind==2, mica_h, base_h), select(kind==2, 0.15, base_s*(0.6+0.8*id2)), select(kind==2, 0.3, base_v*(0.75+0.25*id2)) * (0.85 + 0.15*fine) * (1 - 0.35*crack))
+out rough  = clamp(select(kind==1, 0.35, 0.7) + 0.2*fine, 0, 1)
+` },
+
+{ id: 'canvas', name: 'WAXED CANVAS', src: `# 직물 — 평직(over/under 체커) × 실 단면 × 잔털
+seed = 8
+tile = 1
+var base_h = 0.10
+var base_s = 0.28
+var base_v = 0.55
+var threads = 28
+
+macro weave(x, y, n=28):                             # 평직: 체커 위상에 따라 날실/씨실 단면
+  cx   = x + 0.004*(noise(x, y, freq=30, seed=1) - 0.5)
+  cy   = y + 0.004*(noise(x, y, freq=30, seed=2) - 0.5)
+  over = mod(floor(cx*n) + floor(cy*n), 2)
+  return select(over, sin(PI*fract(cy*n)), sin(PI*fract(cx*n)))
+
+field top   = weave(u, v, n=threads)
+field twist = fbm(u*threads*3, v*threads, freq=1, oct=2, seed=3)
+field fuzz  = fbm(u, v, freq=140, oct=2, gain=0.6, seed=4)
+field slub  = smoothstep(0.7, 0.9, fbm(u, v, freq=5, oct=2, seed=5))
+
+out height = clamp(0.35 + 0.45*top + 0.08*(twist-0.5) + 0.05*(fuzz-0.5) + 0.1*slub, 0, 1)
+out albedo = hsv(base_h, base_s*(0.9+0.2*slub), base_v*(0.75 + 0.25*top + 0.1*(twist-0.5) - 0.06*fuzz))
+out rough  = clamp(0.8 - 0.1*top + 0.1*fuzz, 0, 1)
+` },
+
+{ id: 'rust', name: 'RUSTED STEEL', src: `# 부식강 — 금속 바탕 위 녹 마스크(fbm 문턱) × 녹 안 flaking × 피팅
+seed = 21
+tile = 1
+var steel_h = 0.58
+var rust_h  = 0.045
+var rust    = 0.5
+
+macro threshold_mask(x, y, level, soft=0.1):          # fbm 문턱 마스크 (풍화·얼룩·마모의 공통 형태)
+  n = fbm(x, y, freq=3, oct=5, gain=0.55, seed=1)
+  return smoothstep(level, level + soft, n)
+
+field mask  = threshold_mask(u, v, 0.62 - 0.35*rust)
+field flake = ridged(u, v, freq=25, oct=3, gain=0.5, seed=2)
+field pits  = spots(u, v, freq=80, prob=0.2, radius=0.3, seed=3) * mask
+field brush = fbm(u*60, v, freq=1, oct=2, seed=4)
+field ore   = fbm(u, v, freq=40, oct=3, seed=5)
+
+out height = clamp(0.5 + 0.02*(brush-0.5) + mask*(0.12*flake - 0.06) - 0.15*pits, 0, 1)
+out albedo = hsv(select(mask > 0.5, rust_h + 0.03*ore, steel_h), select(mask > 0.5, 0.75 - 0.2*flake, 0.05), lerp(0.62 + 0.08*(brush-0.5), 0.28 + 0.3*flake, mask) - 0.15*pits)
+out rough  = clamp(lerp(0.3, 0.9, mask), 0, 1)
+out metal  = 1 - mask
+` },
+
+{ id: 'marble', name: 'CARRARA MARBLE', src: `# 대리석 — 도메인 워프된 ridged 맥, 같은 macro를 1배/3배 스케일로
+seed = 2
+tile = 1
+var base_h = 0.62
+var base_s = 0.02
+var base_v = 0.92
+var vein_h = 0.60
+var vein   = 1.0
+
+macro veins(x, y, scale=1, sharp=4):
+  w1 = fbm(x, y, freq=2, oct=4, seed=1)
+  w2 = fbm(x + 0.7, y - 0.3, freq=2, oct=4, seed=2)
+  px = (x + 0.35*(w1 - 0.5))*scale
+  py = (y + 0.35*(w2 - 0.5))*scale
+  return pow(ridged(px, py, freq=2, oct=3, gain=0.6, seed=3), sharp)
+
+field big    = veins(u, v)
+field thin   = veins(u, v, scale=3, sharp=6, seed=1)
+field vn     = clamp(big*vein + 0.35*thin*vein, 0, 1)
+field cloud  = fbm(u, v, freq=6, oct=3, seed=5)
+field grainy = fbm(u, v, freq=160, oct=2, seed=6)
+
+out height = clamp(0.5 - 0.06*vn + 0.02*(grainy-0.5), 0, 1)
+out albedo = hsv(lerp(base_h, vein_h, vn), lerp(base_s, 0.16, vn), base_v*(1 - 0.72*vn - 0.08*(cloud-0.5) - 0.03*grainy))
+out rough  = clamp(0.23 + 0.28*vn, 0, 1)
+` },
+];
+
+
+(() => {
+  const $ = id => document.getElementById(id);
+  const src = $('src'), msg = $('msg'), meter = $('meter'), tabs = $('tabs'), varsEl = $('vars');
+  const irbox = $('irbox'), irButton = $('toggle-ir');
+  const cv = { shaded: $('c-shaded'), albedo: $('c-albedo'), height: $('c-height'), normal: $('c-normal') };
+  const preview3d = GRAIN_3D.create($('c-preview3d'));
+  const state = { prog: null, buf: null, nrm: null, V: null, light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
+  let timer = null;
+
+  // ---------- tabs ----------
+  GRAIN_EXAMPLES.forEach((ex, i) => {
+    const b = document.createElement('button'); b.className = 'tab'; b.textContent = ex.name; b.setAttribute('role', 'tab');
+    b.onclick = () => { load(i); }; tabs.appendChild(b);
+  });
+  function load(i) {
+    [...tabs.children].forEach((b, j) => b.classList.toggle('on', j === i));
+    src.value = GRAIN_EXAMPLES[i].src; state.V = null; compileNow();
+  }
+
+  // ---------- compile ----------
+  function compileNow() {
+    let res;
+    try { res = GRAIN.build(src.value); }
+    catch (e) {
+      msg.className = 'msg err'; msg.textContent = '✕ ' + e.message + (state.prog ? '\n  (마지막 정상 spec 유지 중)' : '');
+      return;
+    }
+    const p = res.prog;
+    // var 슬라이더 값 유지(같은 이름이면)
+    const keep = {}; if (state.prog && state.V) state.prog.vars.forEach((v, i) => keep[v.name] = state.V[i]);
+    state.prog = p; state.V = p.vars.map(v => (v.name in keep ? keep[v.name] : v.value));
+    irbox.textContent = GRAIN.formatIR(res.ir);
+    $('nir').textContent = `IR ${p.irInstructions} inst`;
+    $('hdr-tile').textContent = p.tile ? `tile = ${p.tile}` : 'tile off';
+    $('cost').textContent = `${p.cost.toFixed(1)} / ${GRAIN.LIMITS.maxCost}`;
+    meter.classList.toggle('over', p.cost > GRAIN.LIMITS.maxCost);
+    meter.firstElementChild.style.width = Math.min(100, 100 * p.cost / GRAIN.LIMITS.maxCost) + '%';
+    $('nfields').textContent = `${p.fieldNames.length}+${p.hiddenFields}`;
+    $('nmacros').textContent = `${p.macroDefs} def · ${p.macroInstances} inst`;
+    if (p.warnings.length) { msg.className = 'msg warn'; msg.textContent = p.warnings.map(w => '⚠ ' + w).join('\n'); }
+    else { msg.className = 'msg'; msg.textContent = `✓ 컴파일 OK · seed ${p.seed} · ${p.tile ? 'tile ' + p.tile : 'tile off'} · ${p.vars.length} var · 출력 height/albedo/rough/metal`; }
+    buildVars();
+    evalNow();
+  }
+  function buildVars() {
+    varsEl.innerHTML = '';
+    if (!state.prog.vars.length) return;
+    const k = document.createElement('span'); k.className = 'k'; k.textContent = 'MATERIAL VARS (재컴파일 없이 env만 교체)'; varsEl.appendChild(k);
+    state.prog.vars.forEach((v, i) => {
+      const w = document.createElement('div'); w.className = 'ctl';
+      const lab = document.createElement('label'); lab.textContent = v.name; lab.title = v.name;
+      const r = document.createElement('input'); r.type = 'range';
+      const base = v.value; const span = Math.max(1, Math.abs(base) * 2);
+      r.min = base < 0 ? -span : 0; r.max = base === 0 ? 1 : (base < 1 && base > 0 && !/freq|threads/.test(v.name) ? 1 : span);
+      if (base > 1) { r.min = 0; r.max = base * 2.5; }
+      r.step = (r.max - r.min) / 200; r.value = state.V[i];
+      const o = document.createElement('output'); o.textContent = (+state.V[i]).toFixed(3).replace(/\.?0+$/, '');
+      r.oninput = () => { state.V[i] = +r.value; o.textContent = (+r.value).toFixed(3).replace(/\.?0+$/, ''); schedule(evalNow, 60); };
+      w.append(lab, r, o); varsEl.appendChild(w);
+    });
+  }
+
+  // ---------- eval / draw ----------
+  function evalNow() {
+    if (!state.prog) return;
+    const t0 = performance.now();
+    state.buf = GRAIN.evaluate(state.prog, state.N, state.V, { zoom: state.zoom, centerU: state.centerU, centerV: state.centerV });
+    state.nrm = GRAIN_RENDER.normals(state.buf, state.relief * state.zoom);
+    $('evalms').textContent = (performance.now() - t0).toFixed(0) + 'ms';
+    const se = GRAIN.seamError(state.prog, 128, state.V, state.buf.viewport.rho); const seamEl = $('seam');
+    seamEl.textContent = se < 1e-6 ? '0 ✓' : se.toFixed(3); seamEl.style.color = se < 1e-6 ? 'var(--ok)' : (state.prog.tile ? 'var(--err)' : 'var(--dim)');
+    draw(true);
+  }
+  function relightOnly() { if (!state.buf) return; state.nrm = GRAIN_RENDER.normals(state.buf, state.relief * state.zoom); draw(true); }
+  function put(c, data, N) {
+    const T = state.tiles || 1, W = N * T;
+    if (c.width !== W) { c.width = W; c.height = W; }
+    const ctx = c.getContext('2d'), img = new ImageData(data, N, N);
+    for (let j = 0; j < T; j++) for (let i = 0; i < T; i++) ctx.putImageData(img, i * N, j * N);
+  }
+  function draw(all) {
+    const { buf, nrm } = state, N = buf.N;
+    put(cv.shaded, GRAIN_RENDER.shade(buf, nrm, state.light), N);
+    if (all) { put(cv.albedo, GRAIN_RENDER.albedoImg(buf), N); put(cv.height, GRAIN_RENDER.heightImg(buf), N); put(cv.normal, GRAIN_RENDER.normalImg(nrm, N), N); }
+    if (all) preview3d.update(buf);
+    preview3d.draw({ light:state.light, relief:state.relief, zoom:state.zoom, repeat:state.repeat3d });
+  }
+  function schedule(fn, ms) { clearTimeout(timer); timer = setTimeout(fn, ms); }
+
+  // ---------- inputs ----------
+  src.addEventListener('input', () => schedule(compileNow, 400));
+  src.addEventListener('keydown', e => {
+    if (e.key === 'Tab') { e.preventDefault(); const s = src.selectionStart; src.setRangeText('  ', s, src.selectionEnd, 'end'); }
+  });
+  const bindRange = (id, fn, fmt = v => (+v).toFixed(2)) => { const r = $(id), o = $(id + '-o'); r.oninput = () => { o.textContent = fmt(r.value); fn(+r.value); }; };
+  bindRange('az', v => { state.light.az = v; draw(false); });
+  bindRange('el', v => { state.light.el = v; draw(false); });
+  bindRange('relief', v => { state.relief = v; relightOnly(); });
+  bindRange('repeat3d', v => { state.repeat3d = v; preview3d.draw({ light:state.light, relief:state.relief, zoom:state.zoom, repeat:state.repeat3d }); }, v => `${+v}×`);
+  $('res').onchange = e => { state.N = +e.target.value; evalNow(); };
+  $('zoom').onchange = e => { state.zoom = +e.target.value; $('zoom-o').textContent = `${state.zoom}×`; evalNow(); };
+  $('tiled').onchange = e => { state.tiles = +e.target.value; draw(true); };
+  $('reset3d').onclick = () => preview3d.reset();
+  $('reseed').onclick = () => {
+    const m = src.value.match(/^seed\s*=\s*(\d+)/m);
+    src.value = m ? src.value.replace(/^seed\s*=\s*(\d+)/m, `seed = ${+m[1] + 1}`) : `seed = 1\n` + src.value;
+    compileNow();
+  };
+  irButton.onclick = () => {
+    const on = irbox.classList.toggle('on');
+    irButton.textContent = on ? 'SSA IR 닫기' : 'SSA IR 보기';
+  };
+  // drag on shaded view → light direction
+  const sc = cv.shaded; let dragging = false;
+  const setLightFromEvent = e => {
+    const r = sc.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+    const az = (Math.atan2(x, -y) / (Math.PI * 2) + 1) % 1; const d = Math.min(0.5, Math.hypot(x, y));
+    state.light.az = az; state.light.el = 0.05 + 0.95 * (1 - d / 0.5);
+    $('az').value = az; $('az-o').textContent = az.toFixed(2); $('el').value = state.light.el; $('el-o').textContent = state.light.el.toFixed(2);
+    draw(false);
+  };
+  sc.addEventListener('pointerdown', e => { dragging = true; sc.setPointerCapture(e.pointerId); setLightFromEvent(e); });
+  sc.addEventListener('pointermove', e => { if (dragging) setLightFromEvent(e); });
+  sc.addEventListener('pointerup', () => dragging = false);
+
+  $('hdr-right').textContent = `${GRAIN_EXAMPLES.length} materials · budget ${GRAIN.LIMITS.maxCost}/px · oct ≤ ${GRAIN.LIMITS.maxOct}`;
+  load(0);
+})();
+</script>
+</body>
+</html>

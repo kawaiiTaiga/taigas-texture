@@ -1,0 +1,141 @@
+<div align="center">
+  <table>
+    <tr>
+      <td width="380" align="center"><img src="./assets/taiga-cat.gif" width="330" alt="Taiga cat mascot"></td>
+      <td width="520" align="center"><h1>TAIGA's Texture</h1></td>
+    </tr>
+  </table>
+</div>
+
+<div align="center">
+
+[![CI](https://github.com/kawaiiTaiga/taigas-texture/actions/workflows/ci.yml/badge.svg)](https://github.com/kawaiiTaiga/taigas-texture/actions/workflows/ci.yml)
+![Node 20+](https://img.shields.io/badge/node-20%2B-6da55f?style=flat-square)
+![WebGL 2](https://img.shields.io/badge/preview-WebGL%202-5c7cfa?style=flat-square)
+![Zero dependencies](https://img.shields.io/badge/runtime_dependencies-0-8fb7a6?style=flat-square)
+
+<code>deterministic procedural materials · browser workbench · CLI · MCP</code>
+
+</div>
+
+---
+
+> **TAIGA's Texture** is a compact procedural-material laboratory built around **GRAIN**, a deterministic field-graph DSL that can be authored by people or driven by an LLM.
+
+브라우저에서 재질을 편집하고, PBR 채널과 큐브 프리뷰를 확인하고, 같은 엔진을 CLI 또는 MCP로 자동화할 수 있습니다.
+
+## `[ MATERIAL GALLERY ]`
+
+<table>
+  <tr>
+    <td align="center"><img src="./assets/gallery/crackle-ceramic.png" width="220"><br><sub>CRACKLE CERAMIC</sub></td>
+    <td align="center"><img src="./assets/gallery/saddle-leather.png" width="220"><br><sub>SADDLE LEATHER</sub></td>
+    <td align="center"><img src="./assets/gallery/quarter-sawn-oak.png" width="220"><br><sub>QUARTER-SAWN OAK</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="./assets/gallery/granite.png" width="220"><br><sub>GRANITE</sub></td>
+    <td align="center"><img src="./assets/gallery/waxed-canvas.png" width="220"><br><sub>WAXED CANVAS</sub></td>
+    <td align="center"><img src="./assets/gallery/rusted-steel.png" width="220"><br><sub>RUSTED STEEL</sub></td>
+  </tr>
+</table>
+
+## `[ WHAT'S INSIDE ]`
+
+- **GRAIN DSL** — pure, forward-only fields with deterministic seeds and compile-time cost limits.
+- **Material workbench** — live source editing, PBR channel views, tiling checks, parameter sliders, and an interactive studio-lit cube.
+- **Procedural library** — ceramic, leather, stitched leather, oak, granite, canvas, rusted steel, marble, and multiscale parched earth.
+- **LLM tool surface** — structured validation diagnostics, deterministic analysis, PNG rendering, multiscale inspection, CLI, and stdio MCP.
+- **No runtime packages** — the browser workbench is one HTML file; the automation tools use Node.js built-ins.
+
+## `[ QUICK START ]`
+
+Clone the repository and open [`grain-bench.html`](./grain-bench.html) in a WebGL 2 capable browser.
+
+```bash
+git clone https://github.com/kawaiiTaiga/taigas-texture.git
+cd taigas-texture
+```
+
+On Windows:
+
+```powershell
+Start-Process .\grain-bench.html
+```
+
+Run the regression suite:
+
+```bash
+npm test
+```
+
+## `[ CLI ]`
+
+```bash
+# Discover bundled and library materials
+node grain-cli.mjs examples --json
+
+# Validate one example
+node grain-cli.mjs validate --example saddle --json
+
+# Render PBR views
+node grain-cli.mjs render --example ceramic --out renders/ceramic --resolution 256 --json
+
+# Inspect the same point across scales
+node grain-cli.mjs render-scales materials/parched-earth.grain \
+  --out renders/parched-earth --zooms 1,4,16,64 --center 0.5,0.5 --json
+```
+
+## `[ MCP FOR LLM AGENTS ]`
+
+Start the dependency-free stdio server:
+
+```bash
+node grain-mcp-server.mjs
+```
+
+Example MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "taigas-texture": {
+      "command": "node",
+      "args": ["<ABSOLUTE_PATH>/grain-mcp-server.mjs"]
+    }
+  }
+}
+```
+
+Exposed tools:
+
+- `list_material_examples`
+- `get_material_example`
+- `validate_material`
+- `render_material`
+- `render_material_multiscale`
+
+## `[ GRAIN SAMPLE ]`
+
+```grain
+seed = 17
+tile = 1
+var glaze_h = 0.53
+
+field cells = worley(u, v, freq=15, jitter=1, out=edge, seed=3)
+field crack = 1 - smoothstep(0.004, 0.052, cells)
+field h = clamp(0.52 - 0.11*crack, 0, 1)
+
+out height = h
+out albedo = hsv(glaze_h, 0.42, 0.72*(1 - 0.48*crack))
+out rough = clamp(0.20 + 0.44*crack, 0, 1)
+out metal = 0
+```
+
+## `[ DOCUMENTS ]`
+
+- [LLM authoring and tool guide](./GRAIN-LLM-GUIDE.md)
+- [GRAIN DSL design document (Korean)](./GRAIN-DSL-%EC%84%A4%EA%B3%84%EB%AC%B8%EC%84%9C.md)
+
+## `[ PROJECT STATUS ]`
+
+Experimental, deterministic, and actively evolving. The language and renderer are intentionally small enough to inspect, modify, and embed.

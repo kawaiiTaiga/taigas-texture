@@ -1,0 +1,28 @@
+{
+  "name": "taigas-texture",
+  "version": "0.6.0",
+  "description": "Deterministic procedural material workbench, CLI, and MCP server built around the GRAIN field DSL.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "grain": "node grain-cli.mjs",
+    "grain:mcp": "node grain-mcp-server.mjs",
+    "test": "node grain-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kawaiiTaiga/taigas-texture.git"
+  },
+  "keywords": [
+    "procedural-texture",
+    "material",
+    "webgl2",
+    "pbr",
+    "dsl",
+    "mcp",
+    "llm"
+  ]
+}

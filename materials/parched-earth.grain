@@ -1,0 +1,58 @@
+# Drought-parched earth — warped polygon plates, branching hairline cracks, and dry grit
+seed = 47
+tile = 1
+var earth_h = 0.075
+var earth_s = 0.48
+var earth_v = 0.58
+var crack_depth = 0.34
+
+macro warp_axis(x, y, amount=0.11):
+  return x + amount*(fbm(x, y, freq=2, oct=4, lac=2, gain=0.52, seed=1) - 0.5)
+
+field wx = warp_axis(u, v)
+field wy = warp_axis(v, u, seed=9)
+
+# Five broad cells across the tile establish the dominant dried-mud plates.
+field plate_edge = worley(wx, wy, freq=5, jitter=0.94, out=edge, seed=3)
+field plate_id = worley(wx, wy, freq=5, jitter=0.94, out=id, seed=3)
+field edge_grain = fbm(u, v, freq=24, oct=3, lac=2, gain=0.56, seed=7)
+field width_flow = fbm(u, v, freq=6, oct=3, lac=2, gain=0.55, seed=11)
+field crack_metric = clamp((plate_edge + 0.034*(edge_grain-0.5)) / (0.68 + 0.72*width_flow), 0, 1)
+field deep_crack = 1 - smoothstep(0.004, 0.034, crack_metric)
+field crack_shoulder = 1 - smoothstep(0.029, 0.088, crack_metric)
+field curled_rim = clamp((1 - smoothstep(0.074, 0.145, crack_metric)) - crack_shoulder, 0, 1)
+
+# A sparser second cellular network supplies narrow fractures inside the broad plates.
+field branch_edge = worley(wx, wy, freq=13, jitter=1, out=edge, seed=14)
+field branch_gate = step(0.68, plate_id)
+field hair_crack = (1 - smoothstep(0.002, 0.050, branch_edge)) * branch_gate * (1 - 0.90*deep_crack)
+
+# Independent low-frequency staining and high-frequency mineral dust avoid channel cloning.
+field clay_mottle = fbm(u, v, freq=4, oct=4, lac=2, gain=0.52, seed=27)
+field crust = fbm(u, v, freq=38, oct=3, lac=2, gain=0.58, seed=29)
+field grit = fbm(u, v, freq=112, oct=2, lac=2, gain=0.58, seed=31)
+field crumbs = smoothstep(0.66, 0.82, fbm(u, v, freq=53, oct=2, lac=2, gain=0.58, seed=38))
+
+# rho is the UV width of one output pixel. New structure enters only when that scale is actually resolved.
+field near4 = 1 - smoothstep(0.0012, 0.0030, rho)
+field near16 = 1 - smoothstep(0.00030, 0.00090, rho)
+field near64 = 1 - smoothstep(0.00006, 0.00022, rho)
+
+# Successively smaller desiccation networks: about nine cells across each intended zoom crop.
+field micro_edge = worley(wx + 0.018*(edge_grain-0.5), wy - 0.014*(edge_grain-0.5), freq=37, jitter=1, out=edge, seed=45)
+field micro_crack = (1 - smoothstep(0.006, 0.086, micro_edge)) * near4 * smoothstep(0.42, 0.60, clay_mottle + 0.12*plate_id)
+field grain_edge = worley(wx + 0.009*(grit-0.5), wy - 0.007*(grit-0.5), freq=151, jitter=1, out=edge, seed=51)
+field grain_crack = (1 - smoothstep(0.006, 0.082, grain_edge)) * near16 * smoothstep(0.48, 0.62, crust)
+field dust_edge = worley(wx, wy, freq=607, jitter=1, out=edge, seed=57)
+field dust_crack = (1 - smoothstep(0.005, 0.074, dust_edge)) * near64 * smoothstep(0.50, 0.64, grit)
+
+# Aggregate bands keep revealing clay clumps, mineral grains, and pin pores under magnification.
+field granule = fbm(u, v, freq=420, oct=2, lac=2, gain=0.58, seed=61)
+field dust = fbm(u, v, freq=1500, oct=2, lac=2, gain=0.56, seed=67)
+field pin_pore = spots(u, v, freq=520, prob=0.16, radius=0.18, seed=71)
+field h = clamp(0.58 + 0.045*(plate_id-0.5) + 0.035*(clay_mottle-0.5) + 0.040*(crust-0.5) + 0.016*near4*(grit-0.5) + 0.007*near16*(granule-0.5) + 0.0045*near64*(dust-0.5) + 0.015*crumbs - 0.004*near64*pin_pore + 0.040*curled_rim*(0.55+0.80*edge_grain) - crack_depth*deep_crack*(0.68+0.56*width_flow) - 0.09*crack_shoulder - 0.12*hair_crack - 0.035*micro_crack - 0.016*grain_crack - 0.009*dust_crack, 0, 1)
+
+out height = h
+out albedo = hsv(earth_h + 0.012*(clay_mottle-0.5) + 0.003*near16*(granule-0.5), clamp(earth_s*(0.90 + 0.16*plate_id) - 0.05*crumbs + 0.04*near64*(dust-0.5), 0, 1), clamp(earth_v*(0.76 + 0.22*plate_id + 0.10*clay_mottle) * (1 - deep_crack*(0.52 + 0.25*width_flow)) * (1 - 0.22*crack_shoulder) * (1 - 0.43*hair_crack) * (1 - 0.28*micro_crack) * (1 - 0.18*grain_crack) * (1 - 0.10*dust_crack) * (0.91 + 0.10*crust + 0.05*near4*grit + 0.025*near16*granule + 0.012*near64*dust + 0.035*crumbs), 0, 1))
+out rough = clamp(0.78 + 0.070*crust + 0.045*near4*grit + 0.030*near16*granule + 0.020*near64*dust + 0.060*deep_crack + 0.035*crack_shoulder + 0.040*hair_crack + 0.030*micro_crack + 0.020*grain_crack + 0.015*dust_crack + 0.025*crumbs, 0, 1)
+out metal = 0
