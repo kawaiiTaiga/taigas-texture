@@ -25,7 +25,7 @@ Edit materials in the browser, inspect PBR channels and a cube preview, then aut
   </tr>
 </table>
 
-## `[ WHAT'S INSIDE ]`
+## Features
 
 - **GRAIN DSL** — pure, forward-only fields with deterministic seeds and compile-time cost limits.
 - **Material workbench** — live source editing, PBR channel views, tiling checks, parameter sliders, and an interactive studio-lit cube.
@@ -33,7 +33,7 @@ Edit materials in the browser, inspect PBR channels and a cube preview, then aut
 - **LLM tool surface** — structured validation diagnostics, deterministic analysis, PNG rendering, multiscale inspection, CLI, and stdio MCP.
 - **No runtime packages** — the browser workbench is one HTML file; the automation tools use Node.js built-ins.
 
-## `[ QUICK START ]`
+## Run locally
 
 Clone the repository and open [`grain-bench.html`](./grain-bench.html) in a WebGL 2 capable browser.
 
@@ -48,13 +48,13 @@ On Windows:
 Start-Process .\grain-bench.html
 ```
 
-Run the regression suite:
+Optional verification:
 
 ```bash
 npm test
 ```
 
-## `[ CLI ]`
+## CLI
 
 ```bash
 # Discover bundled and library materials
@@ -71,7 +71,7 @@ node grain-cli.mjs render-scales materials/parched-earth.grain \
   --out renders/parched-earth --zooms 1,4,16,64 --center 0.5,0.5 --json
 ```
 
-## `[ MCP FOR LLM AGENTS ]`
+## MCP
 
 Start the dependency-free stdio server:
 
@@ -100,7 +100,7 @@ Exposed tools:
 - `render_material`
 - `render_material_multiscale`
 
-## `[ GRAIN SAMPLE ]`
+## Material example
 
 ```grain
 seed = 17
@@ -116,12 +116,3 @@ out albedo = hsv(glaze_h, 0.42, 0.72*(1 - 0.48*crack))
 out rough = clamp(0.20 + 0.44*crack, 0, 1)
 out metal = 0
 ```
-
-## `[ DOCUMENTS ]`
-
-- [LLM authoring and tool guide](./GRAIN-LLM-GUIDE.md)
-- [GRAIN DSL design document (Korean)](./GRAIN-DSL-%EC%84%A4%EA%B3%84%EB%AC%B8%EC%84%9C.md)
-
-## `[ PROJECT STATUS ]`
-
-Experimental, deterministic, and actively evolving. The language and renderer are intentionally small enough to inspect, modify, and embed.
