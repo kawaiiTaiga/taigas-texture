@@ -1,0 +1,25 @@
+# Volcanic Lava
+# Warped ropey basalt flow, fractured crust, deep vesicles, fine gas pits, and sparse oxidation.
+seed = 149
+tile = 1
+var basalt_h = 0.07
+var basalt_s = 0.11
+var basalt_v = 0.19
+var oxide_h = 0.035
+
+macro warp_axis(x, y, amount=0.16):
+  return x + amount*(fbm(x, y, freq=2, oct=3, lac=2, gain=0.57, seed=1)-0.5)
+
+field wx = warp_axis(u, v)
+field wy = warp_axis(v, u, seed=8)
+field flow = pow(ridged(wx, wy, freq=3, oct=4, lac=2, gain=0.60, seed=3), 2.6)
+field crust = ridged(wx, wy, freq=15, oct=3, lac=2, gain=0.56, seed=11)
+field vesicles = spots(u, v, freq=31, prob=0.28, radius=0.30, seed=17)
+field fine_pits = spots(u, v, freq=79, prob=0.17, radius=0.19, seed=23)
+field grain = fbm(u, v, freq=96, oct=2, lac=2, gain=0.60, seed=29)
+field oxide = smoothstep(0.64, 0.82, fbm(u, v, freq=5, oct=4, lac=2, gain=0.56, seed=37))
+
+out height = clamp(0.41 + 0.19*flow + 0.075*(crust-0.5) + 0.025*(grain-0.5) - 0.25*vesicles - 0.075*fine_pits, 0, 1)
+out albedo = hsv(lerp(basalt_h, oxide_h, oxide), clamp(lerp(basalt_s, 0.58, oxide), 0, 1), clamp(basalt_v*(0.62 + 0.30*flow + 0.20*crust + 0.09*grain) + 0.09*oxide - 0.12*vesicles - 0.045*fine_pits, 0, 1))
+out rough = clamp(0.68 + 0.13*crust + 0.16*vesicles + 0.09*fine_pits + 0.08*oxide, 0, 1)
+out metal = 0

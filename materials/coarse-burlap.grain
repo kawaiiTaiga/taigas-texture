@@ -1,0 +1,23 @@
+# Coarse Burlap
+# Open plain weave with irregular jute yarns, deep inter-thread gaps, twist, slubs, and dry fuzz.
+seed = 97
+tile = 1
+var jute_h = 0.105
+var jute_s = 0.46
+var jute_v = 0.58
+
+field cx = u + 0.006*(noise(u, v, freq=18, seed=2)-0.5)
+field cy = v + 0.006*(noise(v, u, freq=18, seed=5)-0.5)
+field warp_yarn = pow(sin(PI*fract(cx*18)), 0.55)
+field weft_yarn = pow(sin(PI*fract(cy*16)), 0.55)
+field over = mod(floor(cx*18) + floor(cy*16), 2)
+field top = select(over == 1, warp_yarn, weft_yarn)
+field opening = 1 - smoothstep(0.07, 0.30, max(warp_yarn, weft_yarn))
+field twist = fbm(u*54, v*32, freq=1, oct=2, lac=2, gain=0.60, seed=9)
+field slub = smoothstep(0.68, 0.86, fbm(u, v, freq=6, oct=3, lac=2, gain=0.58, seed=13))
+field fuzz = fbm(u*90, v*80, freq=1, oct=2, lac=2, gain=0.62, seed=17)
+
+out height = clamp(0.25 + 0.48*top + 0.060*(twist-0.5) + 0.070*slub + 0.035*(fuzz-0.5) - 0.18*opening, 0, 1)
+out albedo = hsv(jute_h + 0.018*(twist-0.5), clamp(jute_s*(0.82 + 0.26*slub), 0, 1), clamp(jute_v*(0.60 + 0.32*top + 0.16*twist + 0.12*slub) * (1 - 0.78*opening), 0, 1))
+out rough = clamp(0.80 + 0.11*fuzz + 0.07*slub + 0.10*opening - 0.06*top, 0, 1)
+out metal = 0

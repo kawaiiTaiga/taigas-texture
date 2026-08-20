@@ -1,0 +1,24 @@
+# Cast Iron
+seed = 151
+tile = 1
+var iron_h = 0.60
+var pore_amount = 0.46
+var oxidation = 0.18
+
+macro casting_skin(x, y):
+  coarse = worley(x, y, freq=27, jitter=1, out=f1, seed=1)
+  grain = ridged(x, y, freq=46, oct=3, lac=2, gain=0.58, seed=3)
+  return clamp(0.62*coarse + 0.38*grain, 0, 1)
+
+field skin = casting_skin(u, v)
+field lumps = worley(u, v, freq=12, jitter=0.94, out=id, seed=6)
+field pores = spots(u, v, freq=58, prob=pore_amount, radius=0.24, seed=8)
+field pinholes = spots(u, v, freq=137, prob=0.15, radius=0.15, seed=10)
+field soot = fbm(u, v, freq=7, oct=4, lac=2, gain=0.55, seed=12)
+field oxide = smoothstep(0.63, 0.78, fbm(u, v, freq=11, oct=3, seed=15)) * oxidation
+field micro = fbm(u, v, freq=118, oct=2, gain=0.57, seed=18)
+
+out height = clamp(0.48 + 0.095*(skin-0.5) + 0.035*(lumps-0.5) + 0.022*(micro-0.5) - 0.17*pores - 0.065*pinholes, 0, 1)
+out albedo = hsv(iron_h - 0.045*oxide + 0.008*(soot-0.5), clamp(0.045 + 0.40*oxide, 0, 1), clamp(0.24 + 0.12*skin + 0.07*lumps + 0.05*soot - 0.17*pores - 0.09*pinholes + 0.08*oxide, 0, 1))
+out rough = clamp(0.66 + 0.17*skin + 0.10*pores + 0.06*pinholes + 0.12*oxide, 0, 1)
+out metal = clamp(0.93 - 0.58*oxide - 0.18*pores, 0, 1)

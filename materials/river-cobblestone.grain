@@ -1,0 +1,26 @@
+# River Cobblestone
+# Rounded water-worn stones, narrow sediment seams, mineral mottling, and shallow impact pits.
+seed = 61
+tile = 1
+var stone_h = 0.075
+var stone_s = 0.18
+var stone_v = 0.55
+
+macro warp_axis(x, y, amount=0.075):
+  return x + amount*(fbm(x, y, freq=3, oct=3, lac=2, gain=0.54, seed=1) - 0.5)
+
+field wx = warp_axis(u, v)
+field wy = warp_axis(v, u, seed=7)
+field stone_edge = worley(wx, wy, freq=8, jitter=0.92, out=edge, seed=3)
+field stone_f1 = worley(wx, wy, freq=8, jitter=0.92, out=f1, seed=3)
+field stone_id = worley(wx, wy, freq=8, jitter=0.92, out=id, seed=3)
+field seam = 1 - smoothstep(0.018, 0.105, stone_edge)
+field dome = 1 - smoothstep(0.08, 0.66, stone_f1)
+field mineral = fbm(u, v, freq=7, oct=4, lac=2, gain=0.55, seed=13)
+field grain = fbm(u, v, freq=74, oct=3, lac=2, gain=0.58, seed=17)
+field pits = spots(u, v, freq=49, prob=0.12, radius=0.18, seed=23)
+
+out height = clamp(0.30 + 0.36*dome + 0.055*(stone_id-0.5) + 0.030*(grain-0.5) - 0.18*seam - 0.035*pits, 0, 1)
+out albedo = hsv(stone_h + 0.035*(stone_id-0.5) + 0.010*(mineral-0.5), clamp(stone_s*(0.72 + 0.52*stone_id), 0, 1), clamp(stone_v*(0.72 + 0.22*stone_id + 0.16*mineral) * (1 - 0.48*seam) * (0.96 + 0.07*grain) - 0.08*pits, 0, 1))
+out rough = clamp(0.42 + 0.25*seam + 0.12*grain + 0.10*pits - 0.08*dome, 0, 1)
+out metal = 0

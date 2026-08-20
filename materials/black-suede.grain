@@ -1,0 +1,19 @@
+# Black Suede
+# Directional brushed nap over subtle hide cells, pressure shading, pores, and loose fuzz.
+seed = 73
+tile = 1
+var suede_h = 0.07
+var suede_s = 0.10
+var suede_v = 0.12
+
+field nap = fbm(u*4, v, freq=18, oct=3, lac=2, gain=0.60, seed=2)
+field cross_nap = fbm(u*3, v, freq=22, oct=2, lac=2, gain=0.58, seed=5)
+field pressure = fbm(u, v, freq=4, oct=4, lac=2, gain=0.54, seed=8)
+field nap_clump = ridged(u*2, v, freq=4, oct=3, lac=2, gain=0.58, seed=11)
+field pores = spots(u, v, freq=78, prob=0.17, radius=0.18, seed=17)
+field fuzz = fbm(u*8, v*2, freq=12, oct=2, lac=2, gain=0.62, seed=21)
+
+out height = clamp(0.47 + 0.095*(nap-0.5) + 0.040*(cross_nap-0.5) + 0.030*(nap_clump-0.5) + 0.025*(fuzz-0.5) - 0.035*pores, 0, 1)
+out albedo = hsv(suede_h + 0.010*(pressure-0.5), clamp(suede_s*(0.80 + 0.25*pressure), 0, 1), clamp(suede_v*(0.52 + 0.44*pressure + 0.34*nap + 0.15*cross_nap + 0.10*nap_clump) * (1 - 0.18*pores), 0, 1))
+out rough = clamp(0.86 + 0.11*fuzz + 0.05*pores + 0.05*cross_nap - 0.10*nap - 0.05*nap_clump, 0, 1)
+out metal = 0

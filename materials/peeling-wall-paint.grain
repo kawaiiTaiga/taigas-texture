@@ -1,0 +1,21 @@
+# Peeling Wall Paint — curling paint islands over stained, chalky plaster
+seed = 163
+tile = 1
+var paint_h = 0.54
+var plaster_h = 0.105
+
+field weather = fbm(u, v, freq=4, oct=5, lac=2, gain=0.55, seed=2)
+field paint = smoothstep(0.48, 0.58, weather)
+field curl = smoothstep(0.43, 0.50, weather) - smoothstep(0.50, 0.57, weather)
+field fracture = ridged(u, v, freq=19, oct=3, lac=2, gain=0.52, seed=7)
+field chipped = spots(u, v, freq=34, prob=0.17, radius=0.23, seed=11)
+field exposed = clamp(1 - paint + 0.55*chipped, 0, 1)
+field plaster_grain = fbm(u, v, freq=82, oct=3, lac=2, gain=0.58, seed=17)
+field stains = fbm(u, v, freq=7, oct=3, lac=2, gain=0.56, seed=23)
+field pinhole = spots(u, v, freq=71, prob=0.10, radius=0.14, seed=29)
+field h = clamp(0.43 + 0.10*paint + 0.15*curl - 0.06*exposed*(fracture-0.3) + 0.018*(plaster_grain-0.5) - 0.055*pinhole*exposed, 0, 1)
+
+out height = h
+out albedo = hsv(lerp(plaster_h + 0.018*(stains-0.5), paint_h + 0.012*(fracture-0.5), paint), clamp(lerp(0.23 + 0.10*stains, 0.32 - 0.08*fracture, paint), 0, 1), clamp(lerp(0.58*(0.74+0.24*plaster_grain-0.18*stains), 0.72*(0.88+0.12*fracture), paint) * (1 - 0.20*chipped) * (1 - 0.24*pinhole*exposed), 0, 1))
+out rough = clamp(lerp(0.84 + 0.08*plaster_grain, 0.55 + 0.11*fracture, paint) + 0.13*curl + 0.08*pinhole, 0, 1)
+out metal = 0

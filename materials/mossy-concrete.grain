@@ -1,0 +1,22 @@
+# Mossy Concrete — coarse cement aggregate with damp green colonies in recessed pores
+seed = 139
+tile = 1
+var cement_h = 0.095
+var moss_h = 0.27
+
+field aggregate_id = worley(u, v, freq=24, jitter=0.92, out=id, seed=2)
+field aggregate_edge = worley(u, v, freq=24, jitter=0.92, out=edge, seed=2)
+field aggregate = smoothstep(0.035, 0.12, aggregate_edge)
+field cement = fbm(u, v, freq=17, oct=4, lac=2, gain=0.55, seed=7)
+field grit = fbm(u, v, freq=118, oct=3, lac=2, gain=0.58, seed=13)
+field pores = spots(u, v, freq=62, prob=0.14, radius=0.20, seed=17)
+field damp = fbm(u, v, freq=4, oct=4, lac=2, gain=0.56, seed=23)
+field moss_base = smoothstep(0.54, 0.69, damp)
+field moss_tuft = spots(u, v, freq=47, prob=0.24, radius=0.23, seed=29)
+field moss = clamp(moss_base*(0.58 + 0.62*moss_tuft + 0.25*(1-aggregate)), 0, 1)
+field h = clamp(0.50 + 0.050*(aggregate_id-0.5)*aggregate + 0.025*(cement-0.5) + 0.018*(grit-0.5) - 0.13*pores + 0.055*moss_tuft*moss, 0, 1)
+
+out height = h
+out albedo = hsv(lerp(cement_h + 0.015*(aggregate_id-0.5), moss_h + 0.035*(moss_tuft-0.5), moss), clamp(lerp(0.09 + 0.05*aggregate, 0.62 + 0.12*moss_tuft, moss), 0, 1), clamp(lerp(0.53*(0.82+0.22*cement+0.13*aggregate_id), 0.27*(0.68+0.45*moss_tuft), moss) * (1 - 0.44*pores), 0, 1))
+out rough = clamp(0.72 + 0.11*grit + 0.12*pores + 0.09*moss_tuft*moss - 0.05*damp, 0, 1)
+out metal = 0

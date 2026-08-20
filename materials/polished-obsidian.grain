@@ -1,0 +1,29 @@
+# Polished Obsidian
+seed = 163
+tile = 1
+var glass_h = 0.69
+var flow_strength = 0.62
+var inclusions = 0.20
+
+macro glass_flow(x, y):
+  warp = 0.20*(fbm(x, y, freq=2, oct=4, lac=2, gain=0.54, seed=1)-0.5)
+  ribbon = ridged(x + warp, y - 0.35*warp, freq=4, oct=3, lac=2, gain=0.56, seed=3)
+  return pow(ribbon, 4)
+
+macro glass_flow_fine(x, y):
+  warp = 0.09*(fbm(x, y, freq=4, oct=3, lac=2, gain=0.54, seed=8)-0.5)
+  ribbon = ridged(x + warp, y + 0.25*warp, freq=12, oct=3, lac=2, gain=0.56, seed=9)
+  return pow(ribbon, 4)
+
+field broad_flow = glass_flow(u, v)
+field fine_flow = glass_flow_fine(u, v)
+field conchoid = ridged(u + 0.12*(fbm(u, v, freq=3, oct=3, seed=10)-0.5), v, freq=9, oct=2, lac=2, gain=0.58, seed=12)
+field smoke = fbm(u, v, freq=5, oct=4, lac=2, gain=0.54, seed=15)
+field crystal = spots(u, v, freq=71, prob=0.06, radius=0.17, seed=17) * inclusions
+field hairline = (1-smoothstep(0.006, 0.047, worley(u, v, freq=23, jitter=1, out=edge, seed=19))) * smoothstep(0.64, 0.78, smoke)
+field flow = clamp(flow_strength*(0.72*broad_flow + 0.28*fine_flow), 0, 1)
+
+out height = clamp(0.50 + 0.060*flow + 0.030*(conchoid-0.5) + 0.018*(smoke-0.5) + 0.040*crystal - 0.070*hairline, 0, 1)
+out albedo = hsv(glass_h + 0.035*smoke + 0.055*flow, clamp(0.16 + 0.20*flow + 0.10*conchoid, 0, 1), clamp(0.055 + 0.075*smoke + 0.11*flow + 0.06*conchoid + 0.38*crystal - 0.030*hairline, 0, 1))
+out rough = clamp(0.075 + 0.10*flow + 0.07*conchoid + 0.18*hairline + 0.10*crystal, 0, 1)
+out metal = 0

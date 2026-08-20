@@ -1,0 +1,24 @@
+# Brushed Aluminum
+seed = 127
+tile = 1
+var aluminum_h = 0.58
+var brush_density = 180
+var wear = 0.30
+
+macro brushed_lines(x, y, freq=180):
+  drift = 0.024*(fbm(x, y, freq=5, oct=3, lac=2, gain=0.55, seed=1)-0.5)
+  fine = stripes(y + drift, freq=freq, duty=0.085, soft=0.30)
+  broad = stripes(y + 0.045*(fbm(x, y, freq=3, oct=2, seed=3)-0.5), freq=31, duty=0.32, soft=0.40)
+  return clamp(0.76*fine + 0.24*broad, 0, 1)
+
+field brush = brushed_lines(u, v, freq=brush_density)
+field satin = fbm(u*24, v, freq=1, oct=3, lac=2, gain=0.57, seed=7)
+field sweep = fbm(u, v, freq=4, oct=4, lac=2, gain=0.53, seed=9)
+field scuff = smoothstep(0.60, 0.76, fbm(u, v, freq=7, oct=3, seed=11)) * wear
+field cross = stripes(u + 0.012*(fbm(u, v, freq=6, oct=2, seed=13)-0.5), freq=67, duty=0.035, soft=0.22) * scuff
+field fleck = spots(u, v, freq=96, prob=0.07, radius=0.18, seed=17)
+
+out height = clamp(0.50 + 0.028*(satin-0.5) + 0.024*(sweep-0.5) - 0.032*brush - 0.030*cross - 0.020*fleck, 0, 1)
+out albedo = hsv(aluminum_h + 0.010*(sweep-0.5), 0.025 + 0.018*scuff, clamp(0.70 + 0.12*satin + 0.055*sweep - 0.055*brush - 0.10*fleck, 0, 1))
+out rough = clamp(0.31 + 0.21*brush + 0.13*scuff + 0.10*fleck + 0.06*sweep, 0, 1)
+out metal = clamp(0.99 - 0.05*scuff, 0, 1)

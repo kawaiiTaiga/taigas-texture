@@ -1,0 +1,33 @@
+# Knitted Wool
+# Offset stockinette V-loops, recessed loop openings, soft yarn variation, and dense wool fuzz.
+seed = 109
+tile = 1
+var wool_h = 0.10
+var wool_s = 0.13
+var wool_v = 0.76
+
+macro loop_ridge(x, y, cols=14, rows=12):
+  row = mod(floor(y*rows), 2)
+  px = fract(x*cols + 0.5*row)
+  py = fract(y*rows)
+  left = abs(px - (0.25 + 0.25*py))
+  right = abs(px - (0.75 - 0.25*py))
+  return 1 - smoothstep(0.035, 0.115, min(left, right))
+
+macro loop_hole(x, y, cols=14, rows=12):
+  row = mod(floor(y*rows), 2)
+  px = fract(x*cols + 0.5*row)
+  py = fract(y*rows)
+  d = sqrt(pow(px-0.5, 2) + pow(py-0.48, 2))
+  return 1 - smoothstep(0.11, 0.24, d)
+
+field loops = loop_ridge(u, v)
+field holes = loop_hole(u, v)
+field yarn = fbm(u*56, v*48, freq=1, oct=3, lac=2, gain=0.60, seed=5)
+field cloud = fbm(u, v, freq=4, oct=4, lac=2, gain=0.55, seed=9)
+field fuzz = fbm(u*98, v*84, freq=1, oct=2, lac=2, gain=0.64, seed=13)
+
+out height = clamp(0.36 + 0.34*loops - 0.18*holes + 0.060*(yarn-0.5) + 0.040*(fuzz-0.5), 0, 1)
+out albedo = hsv(wool_h + 0.010*(cloud-0.5), clamp(wool_s*(0.86 + 0.20*cloud), 0, 1), clamp(wool_v*(0.66 + 0.28*loops + 0.12*cloud + 0.07*yarn) * (1 - 0.35*holes), 0, 1))
+out rough = clamp(0.84 + 0.11*fuzz + 0.07*holes + 0.05*yarn - 0.06*loops, 0, 1)
+out metal = 0

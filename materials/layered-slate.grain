@@ -1,0 +1,21 @@
+# Layered Slate — cleaved stone sheets, chipped seams, and fine mineral grain
+seed = 101
+tile = 1
+var slate_h = 0.58
+var slate_s = 0.24
+var slate_v = 0.31
+
+field warp = fbm(u, v, freq=3, oct=4, lac=2, gain=0.52, seed=1)
+field strata = pow(0.5 + 0.5*sin(TAU*(v*11 + 0.42*(warp-0.5))), 7)
+field cleavage = ridged(u, v, freq=18, oct=4, lac=2, gain=0.55, seed=7)
+field slab_id = worley(u, v, freq=7, jitter=0.82, out=id, seed=11)
+field slab_edge = worley(u, v, freq=7, jitter=0.82, out=edge, seed=11)
+field chipped = 1 - smoothstep(0.008, 0.052, slab_edge)
+field grain = fbm(u, v, freq=92, oct=3, lac=2, gain=0.58, seed=17)
+field mica = spots(u, v, freq=72, prob=0.10, radius=0.15, seed=23)
+field h = clamp(0.50 + 0.090*(strata-0.35) + 0.050*(cleavage-0.5) + 0.032*(slab_id-0.5) + 0.018*(grain-0.5) - 0.12*chipped, 0, 1)
+
+out height = h
+out albedo = hsv(slate_h + 0.025*(slab_id-0.5) - 0.012*strata, clamp(slate_s*(0.82 + 0.30*cleavage) + 0.05*mica, 0, 1), clamp(slate_v*(0.72 + 0.34*slab_id + 0.18*cleavage) * (1 - 0.38*chipped) + 0.08*mica, 0, 1))
+out rough = clamp(0.68 + 0.15*cleavage + 0.11*chipped + 0.05*grain - 0.16*mica, 0, 1)
+out metal = 0

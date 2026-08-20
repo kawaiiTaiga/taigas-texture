@@ -1,0 +1,23 @@
+# Indigo Denim
+# Warp-faced 3/1 twill with pale weft glimpses, yarn crowns, indigo variation, and fine fiber nap.
+seed = 83
+tile = 1
+var indigo_h = 0.62
+var indigo_s = 0.72
+var indigo_v = 0.34
+
+field warp_yarn = pow(sin(PI*fract(u*44)), 0.62)
+field weft_yarn = pow(sin(PI*fract(v*32)), 0.72)
+field twill_phase = mod(floor(u*44) + floor(v*32), 4)
+field warp_over = select(twill_phase < 3, 1, 0)
+field top = select(warp_over == 1, warp_yarn, 0.72*weft_yarn)
+field exposed_weft = (1-warp_over)*weft_yarn
+field yarn_twist = fbm(u*88, v*32, freq=1, oct=2, lac=2, gain=0.58, seed=5)
+field indigo_cloud = fbm(u, v, freq=5, oct=4, lac=2, gain=0.54, seed=9)
+field fiber = fbm(u*108, v*12, freq=1, oct=2, lac=2, gain=0.62, seed=13)
+field slub = smoothstep(0.72, 0.88, fbm(u, v, freq=11, oct=2, lac=2, gain=0.56, seed=17))
+
+out height = clamp(0.30 + 0.46*top + 0.055*(yarn_twist-0.5) + 0.030*(fiber-0.5) + 0.055*slub, 0, 1)
+out albedo = hsv(indigo_h + 0.012*(indigo_cloud-0.5), clamp(indigo_s*(1 - 0.42*exposed_weft - 0.10*slub), 0, 1), clamp(indigo_v*(0.48 + 0.42*top + 0.25*exposed_weft + 0.16*indigo_cloud + 0.08*yarn_twist), 0, 1))
+out rough = clamp(0.67 + 0.12*fiber + 0.08*slub + 0.08*exposed_weft - 0.08*top, 0, 1)
+out metal = 0

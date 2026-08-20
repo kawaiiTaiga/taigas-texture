@@ -1,0 +1,24 @@
+# Weathered Copper Patina
+seed = 101
+tile = 1
+var copper_h = 0.075
+var patina_h = 0.47
+var weathering = 0.68
+
+macro corrosion(x, y, level=0.48):
+  broad = fbm(x, y, freq=3, oct=5, lac=2, gain=0.54, seed=1)
+  lace = ridged(x, y, freq=11, oct=3, lac=2, gain=0.56, seed=2)
+  return smoothstep(level, level + 0.13, broad + 0.16*(lace-0.5))
+
+field patina = corrosion(u, v, level=0.56-0.22*weathering)
+field bloom = smoothstep(0.50, 0.73, fbm(u, v, freq=13, oct=3, lac=2, gain=0.55, seed=7)) * patina
+field runoff = stripes(v + 0.035*(fbm(u, v, freq=4, oct=2, seed=9)-0.5), freq=9, duty=0.30, soft=0.22) * smoothstep(0.45, 0.68, fbm(u, v, freq=5, oct=3, seed=10))
+field vein = (1-smoothstep(0.010, 0.065, worley(u, v, freq=18, jitter=1, out=edge, seed=12))) * patina
+field pits = spots(u, v, freq=76, prob=0.16, radius=0.25, seed=15) * (0.35+0.65*patina)
+field grain = fbm(u, v, freq=110, oct=2, lac=2, gain=0.56, seed=18)
+field oxide = clamp(patina + 0.24*bloom + 0.12*runoff + 0.18*vein, 0, 1)
+
+out height = clamp(0.50 + 0.055*oxide + 0.026*(grain-0.5) + 0.035*vein - 0.14*pits, 0, 1)
+out albedo = hsv(lerp(copper_h + 0.018*(grain-0.5), patina_h + 0.035*bloom, oxide), lerp(0.68, 0.62 + 0.18*bloom, oxide), clamp(lerp(0.58 + 0.12*grain, 0.36 + 0.26*bloom + 0.10*grain, oxide) - 0.25*pits, 0, 1))
+out rough = clamp(0.26 + 0.55*oxide + 0.12*pits + 0.08*grain, 0, 1)
+out metal = clamp(1 - 0.94*oxide - 0.35*pits, 0, 1)

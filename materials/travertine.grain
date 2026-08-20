@@ -1,0 +1,20 @@
+# Travertine — sedimentary bands, elongated mineral pores, and chalky deposits
+seed = 113
+tile = 1
+var stone_h = 0.105
+var stone_s = 0.25
+var stone_v = 0.78
+
+field flow = fbm(u, v, freq=3, oct=4, lac=2, gain=0.54, seed=2)
+field bands = 0.5 + 0.5*sin(TAU*(v*13 + 0.30*(flow-0.5)))
+field soft_band = pow(bands, 3)
+field vein = ridged(u, v, freq=9, oct=3, lac=2, gain=0.54, seed=7)
+field pore = spots(u, v*4, freq=15, prob=0.24, radius=0.26, seed=13)
+field pinhole = spots(u, v*3, freq=43, prob=0.12, radius=0.16, seed=17)
+field calcite = fbm(u, v, freq=58, oct=3, lac=2, gain=0.56, seed=19)
+field h = clamp(0.54 + 0.045*(soft_band-0.5) + 0.030*(vein-0.5) + 0.018*(calcite-0.5) - 0.22*pore - 0.065*pinhole, 0, 1)
+
+out height = h
+out albedo = hsv(stone_h + 0.014*(vein-0.5), clamp(stone_s*(0.78 + 0.28*flow) + 0.04*soft_band, 0, 1), clamp(stone_v*(0.74 + 0.20*soft_band + 0.12*flow + 0.08*calcite) * (1 - 0.52*pore) * (1 - 0.25*pinhole), 0, 1))
+out rough = clamp(0.62 + 0.12*pore + 0.10*pinhole + 0.08*calcite - 0.10*soft_band, 0, 1)
+out metal = 0

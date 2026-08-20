@@ -1,0 +1,23 @@
+# Galvanized Steel
+seed = 139
+tile = 1
+var zinc_h = 0.56
+var aging = 0.32
+
+macro spangle(x, y, freq=17):
+  cell = worley(x, y, freq=freq, jitter=1, out=id, seed=1)
+  center = worley(x, y, freq=freq, jitter=1, out=f1, seed=1)
+  edge = worley(x, y, freq=freq, jitter=1, out=edge, seed=1)
+  return clamp(0.58*cell + 0.26*(1-center) + 0.16*smoothstep(0.025, 0.12, edge), 0, 1)
+
+field crystal = spangle(u, v, freq=17)
+field boundary = 1-smoothstep(0.008, 0.052, worley(u, v, freq=17, jitter=1, out=edge, seed=1))
+field subgrain = worley(u, v, freq=43, jitter=0.92, out=id, seed=7)
+field zinc_flow = fbm(u, v, freq=6, oct=4, lac=2, gain=0.54, seed=9)
+field chalk = smoothstep(0.60, 0.76, fbm(u, v, freq=12, oct=3, seed=11)) * aging
+field pin = spots(u, v, freq=88, prob=0.10, radius=0.20, seed=13)
+
+out height = clamp(0.50 + 0.060*(crystal-0.5) + 0.026*(subgrain-0.5) - 0.045*boundary - 0.026*pin, 0, 1)
+out albedo = hsv(zinc_h + 0.025*(crystal-0.5), clamp(0.055 + 0.055*chalk + 0.025*subgrain, 0, 1), clamp(0.62 + 0.22*crystal + 0.08*subgrain - 0.14*chalk - 0.11*boundary - 0.08*pin, 0, 1))
+out rough = clamp(0.38 + 0.22*(1-crystal) + 0.16*boundary + 0.20*chalk + 0.08*pin, 0, 1)
+out metal = clamp(0.98 - 0.22*chalk - 0.08*boundary, 0, 1)

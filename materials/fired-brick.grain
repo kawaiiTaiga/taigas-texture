@@ -1,0 +1,26 @@
+# Fired Brick — staggered masonry courses, recessed mortar, and kiln-fired variation
+seed = 179
+tile = 1
+var brick_h = 0.025
+var brick_s = 0.68
+var brick_v = 0.61
+
+field row = floor(v*8)
+field row_uv = fract(v*8)
+field row_shift = 0.5*mod(row, 2)
+field col_uv = fract(u*4 + row_shift)
+field h_joint = 1 - smoothstep(0.045, 0.115, min(row_uv, 1-row_uv))
+field v_joint = 1 - smoothstep(0.025, 0.075, min(col_uv, 1-col_uv))
+field mortar = max(h_joint, v_joint)
+field brick_core = 1 - mortar
+field brick_id = hash2(floor(u*4 + row_shift), row, seed=3, period=4)
+field kiln = fbm(u, v, freq=8, oct=4, lac=2, gain=0.54, seed=7)
+field clay = ridged(u, v, freq=38, oct=3, lac=2, gain=0.55, seed=13)
+field pits = spots(u, v, freq=58, prob=0.11, radius=0.16, seed=17)*brick_core
+field mortar_grit = fbm(u, v, freq=74, oct=3, lac=2, gain=0.58, seed=23)
+field h = clamp(0.36 + 0.20*brick_core + 0.035*brick_core*(brick_id-0.5) + 0.020*brick_core*(clay-0.5) - 0.075*pits + 0.018*mortar*mortar_grit, 0, 1)
+
+out height = h
+out albedo = hsv(lerp(0.10 + 0.012*(mortar_grit-0.5), brick_h + 0.022*(brick_id-0.5) + 0.012*(kiln-0.5), brick_core), clamp(lerp(0.12, brick_s*(0.82+0.22*brick_id), brick_core), 0, 1), clamp(lerp(0.52*(0.80+0.18*mortar_grit), brick_v*(0.70+0.25*brick_id+0.16*kiln), brick_core) * (1 - 0.34*pits), 0, 1))
+out rough = clamp(lerp(0.86 + 0.06*mortar_grit, 0.72 + 0.10*clay + 0.12*pits, brick_core), 0, 1)
+out metal = 0

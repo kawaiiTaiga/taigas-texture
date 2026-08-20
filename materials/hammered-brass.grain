@@ -1,0 +1,25 @@
+# Hammered Brass
+seed = 113
+tile = 1
+var brass_h = 0.125
+var tarnish = 0.24
+
+macro hammer_cells(x, y, freq=15):
+  warped_x = x + 0.022*(fbm(x, y, freq=3, oct=3, seed=1)-0.5)
+  warped_y = y + 0.022*(fbm(y, x, freq=3, oct=3, seed=2)-0.5)
+  bowl = worley(warped_x, warped_y, freq=freq, jitter=0.86, out=f1, seed=4)
+  rim = worley(warped_x, warped_y, freq=freq, jitter=0.86, out=edge, seed=4)
+  return clamp(0.72*bowl + 0.28*smoothstep(0.015, 0.11, rim), 0, 1)
+
+field hammer = hammer_cells(u, v, freq=15)
+field facets = worley(u, v, freq=15, jitter=0.86, out=id, seed=4)
+field rim = 1-smoothstep(0.012, 0.075, worley(u, v, freq=15, jitter=0.86, out=edge, seed=4))
+field polish = smoothstep(0.52, 0.74, fbm(u, v, freq=5, oct=4, gain=0.54, seed=12))
+field tarnish_mask = smoothstep(0.61, 0.76, fbm(u, v, freq=8, oct=4, gain=0.55, seed=15)) * tarnish
+field scratches = stripes(u + 0.018*(fbm(u, v, freq=7, oct=2, seed=17)-0.5), freq=92, duty=0.07, soft=0.18)
+field micro = fbm(u, v, freq=130, oct=2, gain=0.58, seed=19)
+
+out height = clamp(0.56 - 0.22*hammer + 0.060*rim + 0.020*(micro-0.5) - 0.018*scratches, 0, 1)
+out albedo = hsv(brass_h + 0.010*(facets-0.5) - 0.025*tarnish_mask, clamp(0.72 - 0.22*polish + 0.10*tarnish_mask, 0, 1), clamp(0.62 + 0.18*facets + 0.08*polish - 0.20*tarnish_mask + 0.05*micro, 0, 1))
+out rough = clamp(0.30 + 0.24*hammer + 0.18*tarnish_mask + 0.09*micro - 0.14*polish, 0, 1)
+out metal = clamp(0.98 - 0.28*tarnish_mask, 0, 1)

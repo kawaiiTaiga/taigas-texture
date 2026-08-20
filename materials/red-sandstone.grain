@@ -1,0 +1,25 @@
+# Red Sandstone
+seed = 179
+tile = 1
+var stone_h = 0.035
+var iron_stain = 0.64
+
+macro bedding(x, y):
+  drift = 0.055*(fbm(x, y, freq=3, oct=3, lac=2, gain=0.54, seed=1)-0.5)
+  primary = stripes(y + 0.13*sin(TAU*x) + drift, freq=11, duty=0.46, soft=0.36)
+  fine = stripes(y - 0.07*sin(TAU*x) + 0.5*drift, freq=29, duty=0.24, soft=0.42)
+  return clamp(0.72*primary + 0.28*fine, 0, 1)
+
+field layers = bedding(u, v)
+field grains = worley(u, v, freq=54, jitter=1, out=id, seed=5)
+field grain_edge = 1-smoothstep(0.010, 0.072, worley(u, v, freq=54, jitter=1, out=edge, seed=5))
+field cement = fbm(u, v, freq=16, oct=3, lac=2, gain=0.55, seed=8)
+field mottling = fbm(u, v, freq=5, oct=4, lac=2, gain=0.53, seed=10)
+field pores = spots(u, v, freq=69, prob=0.19, radius=0.22, seed=13)
+field chips = spots(u, v, freq=24, prob=0.07, radius=0.28, seed=15)
+field dust = fbm(u, v, freq=126, oct=2, gain=0.58, seed=18)
+
+out height = clamp(0.51 + 0.070*(layers-0.5) + 0.055*(grains-0.5) + 0.030*(cement-0.5) + 0.020*(dust-0.5) + 0.026*grain_edge - 0.13*pores - 0.18*chips, 0, 1)
+out albedo = hsv(stone_h + 0.018*(mottling-0.5) + 0.012*layers, clamp(iron_stain*(0.84 + 0.22*layers + 0.10*grains), 0, 1), clamp(0.48 + 0.16*layers + 0.10*grains + 0.08*mottling + 0.05*cement - 0.19*pores - 0.25*chips, 0, 1))
+out rough = clamp(0.74 + 0.11*grains + 0.07*grain_edge + 0.08*pores + 0.06*chips + 0.05*dust, 0, 1)
+out metal = 0

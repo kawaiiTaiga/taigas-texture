@@ -1,0 +1,25 @@
+# Natural Cork
+# Irregular cork cells, darker cellular seams, fine granules, and compressed horizontal lenticel pores.
+seed = 127
+tile = 1
+var cork_h = 0.085
+var cork_s = 0.48
+var cork_v = 0.60
+
+macro warp_axis(x, y, amount=0.055):
+  return x + amount*(fbm(x, y, freq=3, oct=3, lac=2, gain=0.55, seed=1)-0.5)
+
+field wx = warp_axis(u, v)
+field wy = warp_axis(v, u, seed=6)
+field cell_edge = worley(wx, wy, freq=11, jitter=1, out=edge, seed=3)
+field cell_id = worley(wx, wy, freq=11, jitter=1, out=id, seed=3)
+field fine_id = worley(u, v, freq=43, jitter=1, out=id, seed=11)
+field seams = 1 - smoothstep(0.018, 0.090, cell_edge)
+field lenticels = spots(u, v*4, freq=12, prob=0.18, radius=0.27, seed=17)
+field granule = fbm(u, v, freq=67, oct=3, lac=2, gain=0.58, seed=21)
+field stain = fbm(u, v, freq=5, oct=4, lac=2, gain=0.54, seed=25)
+
+out height = clamp(0.48 + 0.075*(cell_id-0.5) + 0.050*(fine_id-0.5) + 0.032*(granule-0.5) - 0.055*seams - 0.17*lenticels, 0, 1)
+out albedo = hsv(cork_h + 0.018*(cell_id-0.5), clamp(cork_s*(0.82 + 0.26*cell_id), 0, 1), clamp(cork_v*(0.64 + 0.24*cell_id + 0.16*stain + 0.08*fine_id) * (1 - 0.30*seams) * (1 - 0.62*lenticels), 0, 1))
+out rough = clamp(0.68 + 0.12*granule + 0.15*lenticels + 0.06*seams, 0, 1)
+out metal = 0

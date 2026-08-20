@@ -1,0 +1,20 @@
+# Painted Plaster — broad trowel sweeps under a matte roller-stippled finish
+seed = 151
+tile = 1
+var paint_h = 0.115
+var paint_s = 0.18
+var paint_v = 0.79
+
+field sweep_warp = fbm(u, v, freq=3, oct=4, lac=2, gain=0.54, seed=1)
+field sweep_a = pow(0.5 + 0.5*sin(TAU*(u*5 + v*2 + 0.44*(sweep_warp-0.5))), 6)
+field sweep_b = pow(0.5 + 0.5*sin(TAU*(u*3 - v*4 + 0.30*(sweep_warp-0.5))), 8)
+field plaster = ridged(u, v, freq=11, oct=4, lac=2, gain=0.54, seed=7)
+field roller = fbm(u, v, freq=78, oct=3, lac=2, gain=0.57, seed=13)
+field stipple = spots(u, v, freq=92, prob=0.18, radius=0.16, seed=19)
+field pin = spots(u, v, freq=38, prob=0.06, radius=0.12, seed=23)
+field h = clamp(0.52 + 0.035*(plaster-0.5) + 0.026*sweep_a - 0.020*sweep_b + 0.020*(roller-0.5) + 0.018*stipple - 0.070*pin, 0, 1)
+
+out height = h
+out albedo = hsv(paint_h + 0.009*(sweep_warp-0.5), clamp(paint_s*(0.88 + 0.18*plaster) + 0.025*roller, 0, 1), clamp(paint_v*(0.89 + 0.08*sweep_a - 0.05*sweep_b + 0.08*roller) * (1 - 0.22*pin), 0, 1))
+out rough = clamp(0.67 + 0.10*roller + 0.08*stipple + 0.07*pin + 0.05*plaster, 0, 1)
+out metal = 0
