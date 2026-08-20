@@ -29,6 +29,7 @@ Edit materials in the browser, inspect PBR channels and a cube preview, then aut
 
 - **GRAIN DSL** — pure, forward-only fields with deterministic seeds and compile-time cost limits.
 - **Material workbench** — live source editing, PBR channel views, tiling checks, parameter sliders, and an interactive studio-lit cube.
+- **PBR ZIP export** — download the current browser material as Base Color, Height, OpenGL Normal, Roughness, Metallic, metadata, and its `.grain` source.
 - **Procedural library** — ceramic, leather, stitched leather, oak, granite, canvas, rusted steel, marble, and multiscale parched earth.
 - **LLM tool surface** — structured validation diagnostics, deterministic analysis, PNG rendering, multiscale inspection, CLI, and stdio MCP.
 - **No runtime packages** — the browser workbench is one HTML file; the automation tools use Node.js built-ins.
@@ -53,6 +54,12 @@ Optional verification:
 ```bash
 npm test
 ```
+
+### Export to Blender, Unity, Unreal, or Godot
+
+In the browser workbench, choose the preview resolution and press **PBR export → download .zip**. The archive contains five standard PNG maps, `material.json`, a short integration note, and the authoritative `.grain` source.
+
+Use Base Color as sRGB. Load Height, Normal, Roughness, and Metallic as Non-Color/Linear data. The normal map follows OpenGL (+Y); invert its green channel for a DirectX normal workflow.
 
 ## CLI
 

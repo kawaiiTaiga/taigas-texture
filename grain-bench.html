@@ -74,6 +74,7 @@ select,button.btn{font:inherit;font-size:11px;letter-spacing:.08em;background:va
 .mesh-fixed{color:var(--hot);letter-spacing:.08em;padding:3px 8px;border:1px solid var(--line);background:var(--panel);border-radius:2px}
 button.btn{cursor:pointer}
 button.btn:hover{color:var(--hot);border-color:var(--dim)}
+button.btn:disabled{cursor:wait;color:var(--faint);border-color:var(--line);opacity:.7}
 @media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.spec{border-right:0;border-bottom:1px solid var(--line)}.views{grid-template-columns:repeat(2,minmax(0,1fr))}.view.preview3d{grid-column:1/-1;grid-row:auto}}
 @media (prefers-reduced-motion:reduce){.meter i{transition:none}}
 </style>
@@ -124,6 +125,7 @@ button.btn:hover{color:var(--hot);border-color:var(--dim)}
         <span class="mesh-fixed">cube</span>
         <button class="btn" id="reset3d" type="button">reset view</button></div>
       <div class="ctl"><label>3D repeat</label><input id="repeat3d" type="range" min="1" max="6" step="1" value="1"><output id="repeat3d-o">1×</output></div>
+      <div class="ctl"><label>PBR export</label><button class="btn" id="export-pbr" type="button" title="현재 material을 Base Color, Height, OpenGL Normal, Roughness, Metallic PNG와 GRAIN source로 저장">download .zip</button><output id="export-o" aria-live="polite">READY</output></div>
       <div class="vars" id="vars"></div>
     </div>
   </section>
@@ -864,7 +866,134 @@ const GRAIN_RENDER = (() => {
     for (let k = 0; k < N * N; k++) { const g = 255 * Math.min(1, Math.max(0, R[k])); out[k * 4] = out[k * 4 + 1] = out[k * 4 + 2] = g; out[k * 4 + 3] = 255; }
     return out;
   }
-  return { normals, shade, albedoImg, heightImg, normalImg, roughImg };
+  function metalImg(buf) {
+    const { N, M } = buf; const out = new Uint8ClampedArray(N * N * 4);
+    for (let k = 0; k < N * N; k++) { const g = 255 * Math.min(1, Math.max(0, M[k])); out[k * 4] = out[k * 4 + 1] = out[k * 4 + 2] = g; out[k * 4 + 3] = 255; }
+    return out;
+  }
+  return { normals, shade, albedoImg, heightImg, normalImg, roughImg, metalImg };
+})();
+
+// Browser-native PBR package export. PNGs are already compressed, so the ZIP
+// uses STORE entries and remains dependency-free.
+const GRAIN_EXPORT = (() => {
+  const crcTable = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let bit = 0; bit < 8; bit++) c = (c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) crc = crcTable[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+  function u16(view, offset, value) { view.setUint16(offset, value, true); }
+  function u32(view, offset, value) { view.setUint32(offset, value >>> 0, true); }
+  function text(value) { return new TextEncoder().encode(String(value)); }
+
+  function zipStore(files) {
+    const entries = files.map(file => {
+      const name = text(file.name), data = file.data instanceof Uint8Array ? file.data : new Uint8Array(file.data);
+      return { name, data, crc: crc32(data), offset: 0 };
+    });
+    const localSize = entries.reduce((sum, entry) => sum + 30 + entry.name.length + entry.data.length, 0);
+    const centralSize = entries.reduce((sum, entry) => sum + 46 + entry.name.length, 0);
+    const output = new Uint8Array(localSize + centralSize + 22);
+    const view = new DataView(output.buffer);
+    let at = 0;
+
+    entries.forEach(entry => {
+      entry.offset = at;
+      u32(view, at, 0x04034b50); u16(view, at + 4, 20); u16(view, at + 6, 0x0800); u16(view, at + 8, 0);
+      u16(view, at + 10, 0); u16(view, at + 12, 0x0021); u32(view, at + 14, entry.crc);
+      u32(view, at + 18, entry.data.length); u32(view, at + 22, entry.data.length); u16(view, at + 26, entry.name.length); u16(view, at + 28, 0);
+      output.set(entry.name, at + 30); output.set(entry.data, at + 30 + entry.name.length);
+      at += 30 + entry.name.length + entry.data.length;
+    });
+
+    const centralOffset = at;
+    entries.forEach(entry => {
+      u32(view, at, 0x02014b50); u16(view, at + 4, 20); u16(view, at + 6, 20); u16(view, at + 8, 0x0800); u16(view, at + 10, 0);
+      u16(view, at + 12, 0); u16(view, at + 14, 0x0021); u32(view, at + 16, entry.crc);
+      u32(view, at + 20, entry.data.length); u32(view, at + 24, entry.data.length); u16(view, at + 28, entry.name.length);
+      u16(view, at + 30, 0); u16(view, at + 32, 0); u16(view, at + 34, 0); u16(view, at + 36, 0); u32(view, at + 38, 0); u32(view, at + 42, entry.offset);
+      output.set(entry.name, at + 46); at += 46 + entry.name.length;
+    });
+
+    u32(view, at, 0x06054b50); u16(view, at + 4, 0); u16(view, at + 6, 0); u16(view, at + 8, entries.length); u16(view, at + 10, entries.length);
+    u32(view, at + 12, centralSize); u32(view, at + 16, centralOffset); u16(view, at + 20, 0);
+    return output;
+  }
+
+  function pngBytes(rgba, size) {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
+      const context = canvas.getContext('2d');
+      if (!context) { reject(new Error('PNG canvas를 만들 수 없습니다.')); return; }
+      context.putImageData(new ImageData(rgba, size, size), 0, 0);
+      canvas.toBlob(async blob => {
+        if (!blob) { reject(new Error('PNG 인코딩에 실패했습니다.')); return; }
+        resolve(new Uint8Array(await blob.arrayBuffer()));
+      }, 'image/png');
+    });
+  }
+
+  async function packagePbr(options, progress = () => {}) {
+    const { id, name, source, prog, values, buf, normals, relief } = options;
+    const size = buf.N, base = String(id || `material-${prog.seed}`).replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+    const maps = [
+      ['basecolor', GRAIN_RENDER.albedoImg(buf)],
+      ['height', GRAIN_RENDER.heightImg(buf)],
+      ['normal-opengl', GRAIN_RENDER.normalImg(normals, size)],
+      ['roughness', GRAIN_RENDER.roughImg(buf)],
+      ['metallic', GRAIN_RENDER.metalImg(buf)],
+    ];
+    const files = [];
+    for (let i = 0; i < maps.length; i++) {
+      progress(`MAP ${i + 1}/5`);
+      files.push({ name: `${base}_${maps[i][0]}.png`, data: await pngBytes(maps[i][1], size) });
+    }
+    const variableValues = {};
+    prog.vars.forEach((variable, index) => { variableValues[variable.name] = values[index]; });
+    const manifest = {
+      format: 'TAIGA PBR texture set', version: 1,
+      material: { id: base, name, seed: prog.seed, tile: prog.tile || 0 },
+      resolution: [size, size], viewport: buf.viewport, relief,
+      variables: variableValues,
+      maps: {
+        baseColor: { file: `${base}_basecolor.png`, colorSpace: 'sRGB' },
+        height: { file: `${base}_height.png`, colorSpace: 'Non-Color', bitDepth: 8 },
+        normal: { file: `${base}_normal-opengl.png`, colorSpace: 'Non-Color', convention: 'OpenGL +Y' },
+        roughness: { file: `${base}_roughness.png`, colorSpace: 'Non-Color' },
+        metallic: { file: `${base}_metallic.png`, colorSpace: 'Non-Color' },
+      },
+      source: `${base}.grain`,
+    };
+    const readme = [
+      `${name || base} · ${size}×${size} PBR texture set`, '',
+      'Base Color: use sRGB color space.',
+      'Height, Normal, Roughness, Metallic: use Non-Color / Linear.',
+      'Normal uses OpenGL (+Y). Invert the green channel for DirectX normal maps.',
+      'Height is an 8-bit normalized map. The included .grain source remains the procedural authority.',
+    ].join('\n');
+    files.push({ name: 'material.json', data: text(JSON.stringify(manifest, null, 2) + '\n') });
+    files.push({ name: `${base}.grain`, data: text(source.trim() + '\n') });
+    files.push({ name: 'README.txt', data: text(readme + '\n') });
+    progress('ZIP');
+    return { filename: `${base}-pbr-${size}.zip`, blob: new Blob([zipStore(files)], { type: 'application/zip' }) };
+  }
+
+  function download(pkg) {
+    const url = URL.createObjectURL(pkg.blob), link = document.createElement('a');
+    link.href = url; link.download = pkg.filename; link.hidden = true; document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  return { packagePbr, download, zipStore };
 })();
 
 
@@ -1422,7 +1551,7 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   const irbox = $('irbox'), irButton = $('toggle-ir');
   const cv = { shaded: $('c-shaded'), albedo: $('c-albedo'), height: $('c-height'), normal: $('c-normal') };
   const preview3d = GRAIN_3D.create($('c-preview3d'));
-  const state = { prog: null, buf: null, nrm: null, V: null, light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
+  const state = { prog: null, buf: null, nrm: null, V: null, materialId: 'material', materialName: 'GRAIN MATERIAL', light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
   let timer = null;
 
   // ---------- tabs ----------
@@ -1432,7 +1561,7 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   });
   function load(i) {
     [...tabs.children].forEach((b, j) => b.classList.toggle('on', j === i));
-    src.value = GRAIN_EXAMPLES[i].src; state.V = null; compileNow();
+    src.value = GRAIN_EXAMPLES[i].src; state.V = null; state.materialId = GRAIN_EXAMPLES[i].id; state.materialName = GRAIN_EXAMPLES[i].name; compileNow();
   }
 
   // ---------- compile ----------
@@ -1519,6 +1648,21 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   $('zoom').onchange = e => { state.zoom = +e.target.value; $('zoom-o').textContent = `${state.zoom}×`; evalNow(); };
   $('tiled').onchange = e => { state.tiles = +e.target.value; draw(true); };
   $('reset3d').onclick = () => preview3d.reset();
+  $('export-pbr').onclick = async () => {
+    const button = $('export-pbr'), output = $('export-o');
+    if (!state.prog || !state.buf || !state.nrm) return;
+    button.disabled = true; output.textContent = 'PACK';
+    try {
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
+      const pkg = await GRAIN_EXPORT.packagePbr({
+        id: state.materialId, name: state.materialName, source: src.value, prog: state.prog, values: state.V,
+        buf: state.buf, normals: state.nrm, relief: state.relief * state.zoom,
+      }, label => { output.textContent = label; });
+      GRAIN_EXPORT.download(pkg); output.textContent = 'DONE';
+    } catch (error) {
+      output.textContent = 'ERR'; msg.className = 'msg err'; msg.textContent = '✕ PBR export: ' + (error.message || error);
+    } finally { button.disabled = false; }
+  };
   $('reseed').onclick = () => {
     const m = src.value.match(/^seed\s*=\s*(\d+)/m);
     src.value = m ? src.value.replace(/^seed\s*=\s*(\d+)/m, `seed = ${+m[1] + 1}`) : `seed = 1\n` + src.value;
