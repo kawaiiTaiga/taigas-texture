@@ -9,7 +9,8 @@ import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, val
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const benchHtml = fs.readFileSync(path.join(root, 'ttx-bench.html'), 'utf8');
-assert.match(benchHtml, /<h1>TTX<\/h1>/, 'TTX product identity');
+assert.match(benchHtml, /<h1>TAIGA Texture<\/h1>/, 'TAIGA Texture product identity');
+assert.match(benchHtml, /TTX · Texture DSL/, 'TTX technical shorthand');
 assert.match(benchHtml, /Texture DSL/, 'Texture DSL language label');
 assert.doesNotMatch(benchHtml, /GRAIN_(?:RENDER|EXPORT|3D|EXAMPLES)/, 'legacy engine identifiers removed');
 assert.match(benchHtml, /function cubeMesh\(seg = 128\)/, 'studio cube subdivision');

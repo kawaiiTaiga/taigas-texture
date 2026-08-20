@@ -1,12 +1,14 @@
 <p align="center">
-  <img src="./assets/banner.png" width="100%" alt="TAIGA's Texture">
+  <img src="./assets/banner.png" width="100%" alt="TAIGA Texture">
 </p>
 
 <p align="center"><code>deterministic procedural materials · browser workbench · CLI · MCP</code></p>
 
 ---
 
-> **TAIGA's Texture** is a compact procedural-material laboratory built around **TTX**, a deterministic **Texture DSL** that can be authored by people or driven by an LLM.
+> **TAIGA Texture** is a compact procedural-material laboratory with a deterministic **Texture DSL** that can be authored by people or driven by an LLM.
+
+**TTX** is the technical shorthand taken from **Taiga TeXture**. It names the file format and toolchain; the language itself is called **Texture DSL**.
 
 Edit materials in the browser, inspect PBR channels and a cube preview, then automate the same engine through the CLI or MCP.
 

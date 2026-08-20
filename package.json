@@ -1,7 +1,7 @@
 {
   "name": "taigas-texture",
   "version": "0.7.0",
-  "description": "Deterministic procedural material workbench, CLI, and MCP server built around the TTX Texture DSL.",
+  "description": "TAIGA Texture — a deterministic Texture DSL workbench, CLI, and MCP server.",
   "private": true,
   "type": "module",
   "scripts": {

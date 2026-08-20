@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TTX — Texture DSL workbench</title>
+<title>TAIGA Texture — Texture DSL workbench</title>
 <style>
 :root{
   --bg:#141518; --bench:#1c1e22; --panel:#22252a; --line:#2f333a; --ink:#d9d5cc; --dim:#8a8e95; --faint:#565a61;
@@ -14,7 +14,7 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:12.5px/1.5 var(--mono)}
 body{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden}
 header{display:flex;align-items:baseline;gap:18px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--bench)}
-header h1{margin:0;font-size:13px;letter-spacing:.28em;font-weight:600;color:var(--hot)}
+header h1{margin:0;font-size:13px;letter-spacing:.14em;font-weight:600;color:var(--hot);white-space:nowrap}
 header .sub{color:var(--dim);letter-spacing:.04em}
 header .right{margin-left:auto;color:var(--faint);letter-spacing:.06em;font-size:11px}
 main{display:grid;grid-template-columns:minmax(380px,44%) 1fr;min-height:0}
@@ -81,8 +81,8 @@ button.btn:disabled{cursor:wait;color:var(--faint);border-color:var(--line);opac
 </head>
 <body>
 <header>
-  <h1>TTX</h1>
-  <span class="sub">Texture DSL · 순수 field · macro 인라인 · 격자 wrap 타일링 · 되먹임 없음 · 비용 컴파일 타임 확정</span>
+  <h1>TAIGA Texture</h1>
+  <span class="sub">TTX · Texture DSL · 순수 field · macro 인라인 · 격자 wrap 타일링 · 되먹임 없음 · 비용 컴파일 타임 확정</span>
   <span class="right"><span id="hdr-tile"></span> · <span id="hdr-right"></span></span>
 </header>
 <main>
@@ -1551,7 +1551,7 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   const irbox = $('irbox'), irButton = $('toggle-ir');
   const cv = { shaded: $('c-shaded'), albedo: $('c-albedo'), height: $('c-height'), normal: $('c-normal') };
   const preview3d = TTX_3D.create($('c-preview3d'));
-  const state = { prog: null, buf: null, nrm: null, V: null, materialId: 'material', materialName: 'TTX MATERIAL', light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
+  const state = { prog: null, buf: null, nrm: null, V: null, materialId: 'material', materialName: 'TAIGA Texture material', light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
   let timer = null;
 
   // ---------- tabs ----------
