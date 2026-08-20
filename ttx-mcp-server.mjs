@@ -3,17 +3,17 @@ import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, validateMaterial } from './grain-tools.mjs';
+import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, validateMaterial } from './ttx-tools.mjs';
 
 const TOOL_DEFINITIONS = [
   {
     name: 'list_material_examples',
-    description: 'List the bundled GRAIN material examples. Start here when choosing a proven graph to adapt.',
+    description: 'List the bundled TTX material examples. Start here when choosing a proven graph to adapt.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'get_material_example',
-    description: 'Get one complete, validated GRAIN source example by id. Adapt its graph instead of inventing an unrelated syntax.',
+    description: 'Get one complete, validated Texture DSL source example by id. Adapt its graph instead of inventing an unrelated syntax.',
     inputSchema: {
       type: 'object', required: ['id'], additionalProperties: false,
       properties: { id: { type: 'string', description: 'Example id returned by list_material_examples.' } },
@@ -21,11 +21,11 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_material',
-    description: 'Parse, expand, validate, lower, sample, and determinism-check a GRAIN material. Always call this before rendering and use diagnostic suggestions to repair the source.',
+    description: 'Parse, expand, validate, lower, sample, and determinism-check a TTX material. Always call this before rendering and use diagnostic suggestions to repair the source.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        source: { type: 'string', description: 'Complete GRAIN DSL source. Provide source or exampleId, not both.' },
+        source: { type: 'string', description: 'Complete Texture DSL source. Provide source or exampleId, not both.' },
         exampleId: { type: 'string', description: 'Validate a bundled example instead of source.' },
         values: { type: 'object', additionalProperties: { type: 'number' }, description: 'Optional var overrides by name.' },
         sampleResolution: { type: 'integer', minimum: 16, maximum: 256, default: 64 },
@@ -40,11 +40,11 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'render_material',
-    description: 'Validate and render a GRAIN material into image content for visual scoring. Returns metrics plus requested shaded/PBR views.',
+    description: 'Validate and render a TTX material into image content for visual scoring. Returns metrics plus requested shaded/PBR views.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        source: { type: 'string', description: 'Complete GRAIN DSL source. Provide source or exampleId, not both.' },
+        source: { type: 'string', description: 'Complete Texture DSL source. Provide source or exampleId, not both.' },
         exampleId: { type: 'string', description: 'Render a bundled example instead of source.' },
         values: { type: 'object', additionalProperties: { type: 'number' }, description: 'Optional var overrides by name.' },
         resolution: { type: 'integer', minimum: 16, maximum: 512, default: 192 },
@@ -67,7 +67,7 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        source: { type: 'string', description: 'Complete GRAIN DSL source. Provide source or exampleId, not both.' },
+        source: { type: 'string', description: 'Complete Texture DSL source. Provide source or exampleId, not both.' },
         exampleId: { type: 'string', description: 'Render a bundled/library example instead of source.' },
         values: { type: 'object', additionalProperties: { type: 'number' } },
         resolution: { type: 'integer', minimum: 16, maximum: 512, default: 160 },
@@ -154,7 +154,7 @@ export async function dispatch(message) {
     if (message.method === 'initialize') result = {
       protocolVersion: typeof message.params?.protocolVersion === 'string' ? message.params.protocolVersion : '2025-06-18',
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'grain-material-tools', version: '0.6.0' },
+      serverInfo: { name: 'ttx-material-tools', version: '0.7.0' },
       instructions: 'Use list/get to reuse a proven graph. Validate, then render_material_multiscale at 1×/4×/16×/64×. Inspect whether new physically plausible structure appears at each scale, then use render_material for full PBR review.',
     };
     else if (message.method === 'ping') result = {};

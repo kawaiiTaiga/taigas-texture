@@ -6,7 +6,7 @@
 
 ---
 
-> **TAIGA's Texture** is a compact procedural-material laboratory built around **GRAIN**, a deterministic field-graph DSL that can be authored by people or driven by an LLM.
+> **TAIGA's Texture** is a compact procedural-material laboratory built around **TTX**, a deterministic **Texture DSL** that can be authored by people or driven by an LLM.
 
 Edit materials in the browser, inspect PBR channels and a cube preview, then automate the same engine through the CLI or MCP.
 
@@ -27,16 +27,16 @@ Edit materials in the browser, inspect PBR channels and a cube preview, then aut
 
 ## Features
 
-- **GRAIN DSL** — pure, forward-only fields with deterministic seeds and compile-time cost limits.
+- **Texture DSL** — pure, forward-only fields with deterministic seeds and compile-time cost limits.
 - **Material workbench** — live source editing, PBR channel views, tiling checks, parameter sliders, and an interactive studio-lit cube.
-- **PBR ZIP export** — download the current browser material as Base Color, Height, OpenGL Normal, Roughness, Metallic, metadata, and its `.grain` source.
+- **PBR ZIP export** — download the current browser material as Base Color, Height, OpenGL Normal, Roughness, Metallic, metadata, and its `.ttx` source.
 - **Procedural library** — ceramic, leather, stitched leather, oak, granite, canvas, rusted steel, marble, and multiscale parched earth.
 - **LLM tool surface** — structured validation diagnostics, deterministic analysis, PNG rendering, multiscale inspection, CLI, and stdio MCP.
 - **No runtime packages** — the browser workbench is one HTML file; the automation tools use Node.js built-ins.
 
 ## Run locally
 
-Clone the repository and open [`grain-bench.html`](./grain-bench.html) in a WebGL 2 capable browser.
+Clone the repository and open [`ttx-bench.html`](./ttx-bench.html) in a WebGL 2 capable browser.
 
 ```bash
 git clone https://github.com/kawaiiTaiga/taigas-texture.git
@@ -46,7 +46,7 @@ cd taigas-texture
 On Windows:
 
 ```powershell
-Start-Process .\grain-bench.html
+Start-Process .\ttx-bench.html
 ```
 
 Optional verification:
@@ -57,7 +57,7 @@ npm test
 
 ### Export to Blender, Unity, Unreal, or Godot
 
-In the browser workbench, choose the preview resolution and press **PBR export → download .zip**. The archive contains five standard PNG maps, `material.json`, a short integration note, and the authoritative `.grain` source.
+In the browser workbench, choose the preview resolution and press **PBR export → download .zip**. The archive contains five standard PNG maps, `material.json`, a short integration note, and the authoritative `.ttx` source.
 
 Use Base Color as sRGB. Load Height, Normal, Roughness, and Metallic as Non-Color/Linear data. The normal map follows OpenGL (+Y); invert its green channel for a DirectX normal workflow.
 
@@ -65,16 +65,16 @@ Use Base Color as sRGB. Load Height, Normal, Roughness, and Metallic as Non-Colo
 
 ```bash
 # Discover bundled and library materials
-node grain-cli.mjs examples --json
+node ttx-cli.mjs examples --json
 
 # Validate one example
-node grain-cli.mjs validate --example saddle --json
+node ttx-cli.mjs validate --example saddle --json
 
 # Render PBR views
-node grain-cli.mjs render --example ceramic --out renders/ceramic --resolution 256 --json
+node ttx-cli.mjs render --example ceramic --out renders/ceramic --resolution 256 --json
 
 # Inspect the same point across scales
-node grain-cli.mjs render-scales materials/parched-earth.grain \
+node ttx-cli.mjs render-scales materials/parched-earth.ttx \
   --out renders/parched-earth --zooms 1,4,16,64 --center 0.5,0.5 --json
 ```
 
@@ -83,7 +83,7 @@ node grain-cli.mjs render-scales materials/parched-earth.grain \
 Start the dependency-free stdio server:
 
 ```bash
-node grain-mcp-server.mjs
+node ttx-mcp-server.mjs
 ```
 
 Example MCP configuration:
@@ -93,7 +93,7 @@ Example MCP configuration:
   "mcpServers": {
     "taigas-texture": {
       "command": "node",
-      "args": ["<ABSOLUTE_PATH>/grain-mcp-server.mjs"]
+      "args": ["<ABSOLUTE_PATH>/ttx-mcp-server.mjs"]
     }
   }
 }
@@ -109,7 +109,7 @@ Exposed tools:
 
 ## Material example
 
-```grain
+```ttx
 seed = 17
 tile = 1
 var glaze_h = 0.53

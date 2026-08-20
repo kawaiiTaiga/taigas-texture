@@ -4,11 +4,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { dispatch, TOOL_DEFINITIONS } from './grain-mcp-server.mjs';
-import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, validateMaterial } from './grain-tools.mjs';
+import { dispatch, TOOL_DEFINITIONS } from './ttx-mcp-server.mjs';
+import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, validateMaterial } from './ttx-tools.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const benchHtml = fs.readFileSync(path.join(root, 'grain-bench.html'), 'utf8');
+const benchHtml = fs.readFileSync(path.join(root, 'ttx-bench.html'), 'utf8');
+assert.match(benchHtml, /<h1>TTX<\/h1>/, 'TTX product identity');
+assert.match(benchHtml, /Texture DSL/, 'Texture DSL language label');
+assert.doesNotMatch(benchHtml, /GRAIN_(?:RENDER|EXPORT|3D|EXAMPLES)/, 'legacy engine identifiers removed');
 assert.match(benchHtml, /function cubeMesh\(seg = 128\)/, 'studio cube subdivision');
 assert.match(benchHtml, /vec3 studioEnv\(/, 'studio environment lighting');
 assert.match(benchHtml, /float heightAO\(/, 'height ambient occlusion');
@@ -18,13 +21,13 @@ assert.match(benchHtml, /id="export-pbr"/, 'browser PBR export control');
 assert.match(benchHtml, /function zipStore\(files\)/, 'dependency-free ZIP packaging');
 assert.match(benchHtml, /normal-opengl/, 'OpenGL normal-map export');
 assert.match(benchHtml, /metalImg/, 'metallic-map export');
-const exportStart = benchHtml.indexOf('const GRAIN_EXPORT = (() => {');
+const exportStart = benchHtml.indexOf('const TTX_EXPORT = (() => {');
 const exportEnd = benchHtml.indexOf('// Native WebGL2 material preview.', exportStart);
 assert.ok(exportStart >= 0 && exportEnd > exportStart, 'browser exporter source boundary');
 const exportSandbox = { TextEncoder, Uint8Array, Uint32Array, DataView };
 vm.createContext(exportSandbox);
-vm.runInContext(`${benchHtml.slice(exportStart, exportEnd)}\nglobalThis.__grainExport = GRAIN_EXPORT;`, exportSandbox);
-const zipProbe = exportSandbox.__grainExport.zipStore([{ name: 'probe.txt', data: new TextEncoder().encode('grain') }]);
+vm.runInContext(`${benchHtml.slice(exportStart, exportEnd)}\nglobalThis.__ttxExport = TTX_EXPORT;`, exportSandbox);
+const zipProbe = exportSandbox.__ttxExport.zipStore([{ name: 'probe.txt', data: new TextEncoder().encode('ttx') }]);
 const zipView = new DataView(zipProbe.buffer, zipProbe.byteOffset, zipProbe.byteLength);
 assert.equal(zipView.getUint32(0, true), 0x04034b50, 'PBR ZIP local header');
 assert.equal(zipView.getUint32(zipProbe.length - 22, true), 0x06054b50, 'PBR ZIP end record');
@@ -65,7 +68,7 @@ for (const image of rendered.images) {
 }
 
 const initialized = await dispatch({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } });
-assert.equal(initialized.result.serverInfo.name, 'grain-material-tools', 'MCP initialize');
+assert.equal(initialized.result.serverInfo.name, 'ttx-material-tools', 'MCP initialize');
 const listed = await dispatch({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
 assert.equal(listed.result.tools.length, TOOL_DEFINITIONS.length, 'MCP tools/list');
 const validated = await dispatch({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'validate_material', arguments: { exampleId: 'leather', sampleResolution: 16 } } });
@@ -100,17 +103,17 @@ const rpcInput = [
   { jsonrpc: '2.0', id: 10, method: 'initialize', params: { protocolVersion: '2025-06-18' } },
   { jsonrpc: '2.0', id: 11, method: 'tools/list', params: {} },
 ].map(x => JSON.stringify(x)).join('\n') + '\n';
-const stdio = spawnSync(process.execPath, ['grain-mcp-server.mjs'], { cwd: root, input: rpcInput, encoding: 'utf8' });
+const stdio = spawnSync(process.execPath, ['ttx-mcp-server.mjs'], { cwd: root, input: rpcInput, encoding: 'utf8' });
 assert.equal(stdio.status, 0, `MCP stdio exit: ${stdio.stderr}`);
 const rpcResponses = stdio.stdout.trim().split(/\r?\n/).map(line => JSON.parse(line));
 assert.equal(rpcResponses.length, 2, 'MCP stdio response count');
 assert.equal(rpcResponses[1].result.tools.length, TOOL_DEFINITIONS.length, 'MCP stdio tools/list');
 
-const cli = spawnSync(process.execPath, ['grain-cli.mjs', 'validate', '--example', 'canvas', '--json', '--resolution', '16'], { cwd: root, encoding: 'utf8' });
+const cli = spawnSync(process.execPath, ['ttx-cli.mjs', 'validate', '--example', 'canvas', '--json', '--resolution', '16'], { cwd: root, encoding: 'utf8' });
 assert.equal(cli.status, 0, `CLI exit: ${cli.stderr}`);
 assert.equal(JSON.parse(cli.stdout).valid, true, 'CLI JSON');
 
-const badCli = spawnSync(process.execPath, ['grain-cli.mjs', 'validate', '-', '--json', '--resolution', '16'], { cwd: root, input: 'out height = 0.5\n', encoding: 'utf8' });
+const badCli = spawnSync(process.execPath, ['ttx-cli.mjs', 'validate', '-', '--json', '--resolution', '16'], { cwd: root, input: 'out height = 0.5\n', encoding: 'utf8' });
 assert.equal(badCli.status, 1, `invalid CLI exit: ${badCli.stderr}`);
 assert.equal(JSON.parse(badCli.stdout).diagnostics[0].code, 'MISSING_OUTPUT', 'invalid CLI structured diagnostic');
 

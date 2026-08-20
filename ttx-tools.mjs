@@ -5,7 +5,7 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const BENCH_PATH = path.join(ROOT, 'grain-bench.html');
+const BENCH_PATH = path.join(ROOT, 'ttx-bench.html');
 const MATERIALS_PATH = path.join(ROOT, 'materials');
 const MAX_SOURCE_BYTES = 200_000;
 const DEFAULT_SAMPLE_RESOLUTION = 64;
@@ -19,16 +19,16 @@ function loadRuntime() {
   const html = fs.readFileSync(BENCH_PATH, 'utf8');
   const scriptStart = html.indexOf('<script>');
   const scriptEnd = html.lastIndexOf('</script>');
-  if (scriptStart < 0 || scriptEnd < 0) throw new Error('grain-bench.html에서 엔진 script를 찾지 못함');
+  if (scriptStart < 0 || scriptEnd < 0) throw new Error('ttx-bench.html에서 엔진 script를 찾지 못함');
   let source = html.slice(scriptStart + '<script>'.length, scriptEnd);
-  const examplesAt = source.indexOf('const GRAIN_EXAMPLES');
+  const examplesAt = source.indexOf('const TTX_EXAMPLES');
   const uiAt = source.indexOf('(() => {', examplesAt);
-  if (examplesAt < 0 || uiAt < 0) throw new Error('grain-bench.html 엔진 경계를 찾지 못함');
+  if (examplesAt < 0 || uiAt < 0) throw new Error('ttx-bench.html 엔진 경계를 찾지 못함');
   source = source.slice(0, uiAt);
-  source += '\n;globalThis.__grainRuntime = { GRAIN, GRAIN_RENDER, GRAIN_EXAMPLES };';
+  source += '\n;globalThis.__ttxRuntime = { TTX, TTX_RENDER, TTX_EXAMPLES };';
   const context = vm.createContext({ console });
   new vm.Script(source, { filename: BENCH_PATH }).runInContext(context);
-  runtimeCache = context.__grainRuntime;
+  runtimeCache = context.__ttxRuntime;
   return runtimeCache;
 }
 
@@ -175,15 +175,15 @@ function analyzeBuffer(buffer) {
 }
 
 function analyzeProgram(prog, resolution, values, checkDeterminism, viewport) {
-  const { GRAIN } = loadRuntime();
+  const { TTX } = loadRuntime();
   const normalizedViewport = normalizeViewport(viewport);
-  const buffer = GRAIN.evaluate(prog, resolution, values, normalizedViewport);
+  const buffer = TTX.evaluate(prog, resolution, values, normalizedViewport);
   const metrics = analyzeBuffer(buffer);
   const channelStats = metrics.channels;
-  const seam = GRAIN.seamError(prog, Math.max(32, resolution), values, buffer.viewport.rho);
+  const seam = TTX.seamError(prog, Math.max(32, resolution), values, buffer.viewport.rho);
   let deterministic = null;
   if (checkDeterminism) {
-    const again = GRAIN.evaluate(prog, resolution, values, normalizedViewport);
+    const again = TTX.evaluate(prog, resolution, values, normalizedViewport);
     deterministic = equalTypedArrays(buffer.H, again.H) && equalTypedArrays(buffer.A, again.A)
       && equalTypedArrays(buffer.R, again.R) && equalTypedArrays(buffer.M, again.M);
   }
@@ -211,11 +211,11 @@ function analyzeProgram(prog, resolution, values, checkDeterminism, viewport) {
 }
 
 function allExamples() {
-  const { GRAIN_EXAMPLES } = loadRuntime();
-  const examples = GRAIN_EXAMPLES.map(item => ({ id: item.id, name: item.name, source: item.src, origin: 'bundled' }));
+  const { TTX_EXAMPLES } = loadRuntime();
+  const examples = TTX_EXAMPLES.map(item => ({ id: item.id, name: item.name, source: item.src, origin: 'bundled' }));
   if (fs.existsSync(MATERIALS_PATH)) {
     const files = fs.readdirSync(MATERIALS_PATH, { withFileTypes: true })
-      .filter(item => item.isFile() && item.name.toLowerCase().endsWith('.grain'))
+      .filter(item => item.isFile() && item.name.toLowerCase().endsWith('.ttx'))
       .map(item => item.name).sort();
     for (const file of files) {
       const id = path.basename(file, path.extname(file));
@@ -244,9 +244,9 @@ export function validateMaterial({ source, values = {}, sampleResolution, checkD
   try {
     assertSource(source);
     const resolution = boundedInteger(sampleResolution, DEFAULT_SAMPLE_RESOLUTION, 16, 256, 'sampleResolution');
-    const { GRAIN } = loadRuntime();
-    const built = GRAIN.build(source);
-    GRAIN.validateIR(built.ir);
+    const { TTX } = loadRuntime();
+    const built = TTX.build(source);
+    TTX.validateIR(built.ir);
     const resolvedValues = resolveValues(built.prog, values);
     const analysis = analyzeProgram(built.prog, resolution, resolvedValues, Boolean(checkDeterminism), { zoom, centerU, centerV });
     const diagnostics = [...built.prog.warnings.map(classifyCompilerWarning), ...analysis.diagnostics];
@@ -255,15 +255,15 @@ export function validateMaterial({ source, values = {}, sampleResolution, checkD
       diagnostics,
       summary: {
         seed: built.prog.seed, tile: built.prog.tile,
-        cost: Number(built.prog.cost.toFixed(3)), costBudget: GRAIN.LIMITS.maxCost,
-        fields: { user: built.prog.fieldNames.length, hidden: built.prog.hiddenFields, userLimit: GRAIN.LIMITS.maxFields, expandedLimit: GRAIN.LIMITS.maxExpandedFields },
-        macros: { definitions: built.prog.macroDefs, instances: built.prog.macroInstances, depthLimit: GRAIN.LIMITS.maxMacroDepth },
+        cost: Number(built.prog.cost.toFixed(3)), costBudget: TTX.LIMITS.maxCost,
+        fields: { user: built.prog.fieldNames.length, hidden: built.prog.hiddenFields, userLimit: TTX.LIMITS.maxFields, expandedLimit: TTX.LIMITS.maxExpandedFields },
+        macros: { definitions: built.prog.macroDefs, instances: built.prog.macroInstances, depthLimit: TTX.LIMITS.maxMacroDepth },
         variables: built.prog.vars.map((v, index) => ({ name: v.name, default: v.value, value: resolvedValues[index] })),
         irInstructions: built.prog.irInstructions,
       },
       analysis: { resolution: analysis.resolution, viewport: analysis.viewport, seam: analysis.seam, deterministic: analysis.deterministic, channels: analysis.channels, spatial: analysis.spatial },
     };
-    if (includeIr) result.ir = GRAIN.formatIR(built.ir);
+    if (includeIr) result.ir = TTX.formatIR(built.ir);
     return result;
   } catch (error) {
     return { valid: false, diagnostics: [classifyCompilerError(error)] };
@@ -318,13 +318,13 @@ function normalizedViews(views, fallback = VIEW_NAMES) {
   return [...new Set(requestedViews)];
 }
 
-function renderViews(GRAIN_RENDER, buffer, normals, size, views) {
+function renderViews(TTX_RENDER, buffer, normals, size, views) {
   const rgbaByView = {
-    shaded: () => GRAIN_RENDER.shade(buffer, normals, { az: 0.12, el: 0.45 }),
-    albedo: () => GRAIN_RENDER.albedoImg(buffer),
-    height: () => GRAIN_RENDER.heightImg(buffer),
-    normal: () => GRAIN_RENDER.normalImg(normals, size),
-    rough: () => GRAIN_RENDER.roughImg(buffer),
+    shaded: () => TTX_RENDER.shade(buffer, normals, { az: 0.12, el: 0.45 }),
+    albedo: () => TTX_RENDER.albedoImg(buffer),
+    height: () => TTX_RENDER.heightImg(buffer),
+    normal: () => TTX_RENDER.normalImg(normals, size),
+    rough: () => TTX_RENDER.roughImg(buffer),
     metal: () => grayscaleImage(buffer.M),
   };
   return views.map(view => ({ view, width: size, height: size, mimeType: 'image/png', data: encodePngRgba(size, size, rgbaByView[view]()) }));
@@ -338,12 +338,12 @@ export function renderMaterial({ source, values = {}, resolution, relief, views,
   const viewport = normalizeViewport({ zoom, centerU, centerV });
   const validation = validateMaterial({ source, values, sampleResolution: Math.min(size, 128), checkDeterminism: true, ...viewport });
   if (!validation.valid) return { ...validation, images: [] };
-  const { GRAIN, GRAIN_RENDER } = loadRuntime();
-  const built = GRAIN.build(source);
+  const { TTX, TTX_RENDER } = loadRuntime();
+  const built = TTX.build(source);
   const resolvedValues = resolveValues(built.prog, values);
-  const buffer = GRAIN.evaluate(built.prog, size, resolvedValues, viewport);
-  const normals = GRAIN_RENDER.normals(buffer, reliefValue * viewport.zoom);
-  const images = renderViews(GRAIN_RENDER, buffer, normals, size, uniqueViews);
+  const buffer = TTX.evaluate(built.prog, size, resolvedValues, viewport);
+  const normals = TTX_RENDER.normals(buffer, reliefValue * viewport.zoom);
+  const images = renderViews(TTX_RENDER, buffer, normals, size, uniqueViews);
   return { ...validation, render: { resolution: size, relief: reliefValue, views: uniqueViews, viewport: buffer.viewport }, images };
 }
 
@@ -358,14 +358,14 @@ export function renderMaterialMultiscale({ source, values = {}, resolution, reli
   const center = normalizeViewport({ zoom: 1, centerU, centerV });
   const validation = validateMaterial({ source, values, sampleResolution: Math.min(size, 96), checkDeterminism: true, ...center });
   if (!validation.valid) return { ...validation, images: [], scales: [] };
-  const { GRAIN, GRAIN_RENDER } = loadRuntime();
-  const built = GRAIN.build(source);
+  const { TTX, TTX_RENDER } = loadRuntime();
+  const built = TTX.build(source);
   const resolvedValues = resolveValues(built.prog, values);
   const images = [], scales = [], scaleDiagnostics = [];
   for (const zoomValue of uniqueZooms) {
     const viewport = { zoom: zoomValue, centerU: center.centerU, centerV: center.centerV };
-    const buffer = GRAIN.evaluate(built.prog, size, resolvedValues, viewport);
-    const normals = GRAIN_RENDER.normals(buffer, reliefValue * zoomValue);
+    const buffer = TTX.evaluate(built.prog, size, resolvedValues, viewport);
+    const normals = TTX_RENDER.normals(buffer, reliefValue * zoomValue);
     const metrics = analyzeBuffer(buffer);
     scales.push({ zoom: zoomValue, viewport: buffer.viewport, channels: metrics.channels, spatial: metrics.spatial });
     if (zoomValue > 1 && metrics.channels.height.stddev < 0.003 && metrics.channels.albedoLuminance.stddev < 0.003) scaleDiagnostics.push({
@@ -373,7 +373,7 @@ export function renderMaterialMultiscale({ source, values = {}, resolution, reli
       message: `${zoomValue}× crop에서 height와 albedo가 동시에 거의 평평합니다.`,
       suggestion: '이 footprint에서만 활성화되는 더 작은 균열·응집토·입자 band를 rho로 추가하세요.',
     });
-    for (const image of renderViews(GRAIN_RENDER, buffer, normals, size, uniqueViews)) images.push({ ...image, zoom: zoomValue });
+    for (const image of renderViews(TTX_RENDER, buffer, normals, size, uniqueViews)) images.push({ ...image, zoom: zoomValue });
   }
   return {
     ...validation, diagnostics: [...validation.diagnostics, ...scaleDiagnostics],
@@ -382,7 +382,7 @@ export function renderMaterialMultiscale({ source, values = {}, resolution, reli
   };
 }
 
-export const grainToolInfo = Object.freeze({
+export const ttxToolInfo = Object.freeze({
   root: ROOT, benchPath: BENCH_PATH, materialsPath: MATERIALS_PATH, maxSourceBytes: MAX_SOURCE_BYTES,
   sampleResolution: DEFAULT_SAMPLE_RESOLUTION, renderResolution: DEFAULT_RENDER_RESOLUTION,
   views: VIEW_NAMES,

@@ -1,13 +1,13 @@
 {
   "name": "taigas-texture",
-  "version": "0.6.0",
-  "description": "Deterministic procedural material workbench, CLI, and MCP server built around the GRAIN field DSL.",
+  "version": "0.7.0",
+  "description": "Deterministic procedural material workbench, CLI, and MCP server built around the TTX Texture DSL.",
   "private": true,
   "type": "module",
   "scripts": {
-    "grain": "node grain-cli.mjs",
-    "grain:mcp": "node grain-mcp-server.mjs",
-    "test": "node grain-test.mjs"
+    "ttx": "node ttx-cli.mjs",
+    "ttx:mcp": "node ttx-mcp-server.mjs",
+    "test": "node ttx-test.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -2,18 +2,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, validateMaterial } from './grain-tools.mjs';
+import { getExample, listExamples, renderMaterial, renderMaterialMultiscale, validateMaterial } from './ttx-tools.mjs';
 
 function usage() {
-  return `GRAIN CLI
+  return `TTX CLI
 
 Usage:
-  node grain-cli.mjs examples [--json]
-  node grain-cli.mjs example <id>
-  node grain-cli.mjs validate <file|-> [--json] [--resolution N] [--zoom N] [--center U,V] [--values JSON] [--ir]
-  node grain-cli.mjs validate --example <id> [--json] [--resolution N] [--zoom N] [--center U,V] [--values JSON] [--ir]
-  node grain-cli.mjs render <file|-> --out <dir> [--resolution N] [--zoom N] [--center U,V] [--relief N] [--views shaded,albedo,height,normal,rough,metal] [--values JSON] [--json]
-  node grain-cli.mjs render-scales <file|-> --out <dir> [--resolution N] [--zooms 1,4,16,64] [--center U,V] [--views shaded,albedo,height,normal] [--json]
+  node ttx-cli.mjs examples [--json]
+  node ttx-cli.mjs example <id>
+  node ttx-cli.mjs validate <file|-> [--json] [--resolution N] [--zoom N] [--center U,V] [--values JSON] [--ir]
+  node ttx-cli.mjs validate --example <id> [--json] [--resolution N] [--zoom N] [--center U,V] [--values JSON] [--ir]
+  node ttx-cli.mjs render <file|-> --out <dir> [--resolution N] [--zoom N] [--center U,V] [--relief N] [--views shaded,albedo,height,normal,rough,metal] [--values JSON] [--json]
+  node ttx-cli.mjs render-scales <file|-> --out <dir> [--resolution N] [--zooms 1,4,16,64] [--center U,V] [--views shaded,albedo,height,normal] [--json]
 
 Exit codes: 0 success, 1 invalid material, 2 usage/tool error.`;
 }
@@ -133,4 +133,4 @@ async function main() {
   throw new Error(`알 수 없는 command '${command}'\n\n${usage()}`);
 }
 
-main().then(code => { process.exitCode = code; }).catch(error => { console.error(`grain: ${error.message}`); process.exitCode = 2; });
+main().then(code => { process.exitCode = code; }).catch(error => { console.error(`ttx: ${error.message}`); process.exitCode = 2; });

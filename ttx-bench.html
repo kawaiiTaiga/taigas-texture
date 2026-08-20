@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAIN — fractal texture DSL bench</title>
+<title>TTX — Texture DSL workbench</title>
 <style>
 :root{
   --bg:#141518; --bench:#1c1e22; --panel:#22252a; --line:#2f333a; --ink:#d9d5cc; --dim:#8a8e95; --faint:#565a61;
@@ -81,8 +81,8 @@ button.btn:disabled{cursor:wait;color:var(--faint);border-color:var(--line);opac
 </head>
 <body>
 <header>
-  <h1>GRAIN</h1>
-  <span class="sub">fractal texture DSL · 순수 field · macro 인라인 · 격자 wrap 타일링 · 되먹임 없음 · 비용 컴파일 타임 확정</span>
+  <h1>TTX</h1>
+  <span class="sub">Texture DSL · 순수 field · macro 인라인 · 격자 wrap 타일링 · 되먹임 없음 · 비용 컴파일 타임 확정</span>
   <span class="right"><span id="hdr-tile"></span> · <span id="hdr-right"></span></span>
 </header>
 <main>
@@ -125,17 +125,17 @@ button.btn:disabled{cursor:wait;color:var(--faint);border-color:var(--line);opac
         <span class="mesh-fixed">cube</span>
         <button class="btn" id="reset3d" type="button">reset view</button></div>
       <div class="ctl"><label>3D repeat</label><input id="repeat3d" type="range" min="1" max="6" step="1" value="1"><output id="repeat3d-o">1×</output></div>
-      <div class="ctl"><label>PBR export</label><button class="btn" id="export-pbr" type="button" title="현재 material을 Base Color, Height, OpenGL Normal, Roughness, Metallic PNG와 GRAIN source로 저장">download .zip</button><output id="export-o" aria-live="polite">READY</output></div>
+      <div class="ctl"><label>PBR export</label><button class="btn" id="export-pbr" type="button" title="현재 material을 Base Color, Height, OpenGL Normal, Roughness, Metallic PNG와 TTX source로 저장">download .zip</button><output id="export-o" aria-live="polite">READY</output></div>
       <div class="vars" id="vars"></div>
     </div>
   </section>
 </main>
 <script>
 // ============================================================
-// GRAIN — fractal texture DSL engine (parser / validator / compiler)
+// TTX — Texture DSL engine (parser / validator / compiler)
 // 순수 field 언어. 되먹임 없음, 비용은 컴파일 타임에 확정.
 // ============================================================
-const GRAIN = (() => {
+const TTX = (() => {
 
   // ---------- limits (장치 프로파일에서 재조정 대상) ----------
   const LIMITS = {
@@ -534,13 +534,13 @@ const GRAIN = (() => {
     }
     if (outputs.rough === undefined) outputs.rough = constant(0.5, 0);
     if (outputs.metal === undefined) outputs.metal = constant(0, 0);
-    const ir = { version:1, kind:'grain-ssa', params:doc.vars.map(v => ({name:v.name, default:v.value})), code, outputs };
+    const ir = { version:1, kind:'ttx-ssa', params:doc.vars.map(v => ({name:v.name, default:v.value})), code, outputs };
     validateIR(ir);
     return ir;
   }
 
   function validateIR(ir) {
-    if (!ir || ir.version !== 1 || ir.kind !== 'grain-ssa' || !Array.isArray(ir.code)) throw new Error('IR: 지원하지 않는 형식');
+    if (!ir || ir.version !== 1 || ir.kind !== 'ttx-ssa' || !Array.isArray(ir.code)) throw new Error('IR: 지원하지 않는 형식');
     ir.code.forEach((x, i) => {
       if (x.dst !== i) throw new Error(`IR r${i}: dst는 명령 인덱스와 같아야 함`);
       if (!Array.isArray(x.src) || x.src.some(s => !Number.isInteger(s) || s < 0 || s >= i)) throw new Error(`IR r${i}: 앞선 레지스터만 참조 가능`);
@@ -586,7 +586,7 @@ const GRAIN = (() => {
 
   function formatIR(ir) {
     const ref = r => `r${r}`;
-    const lines = [`grain-ssa v${ir.version}`, ...ir.params.map((p,i) => `p${i} ${p.name} = ${p.default}`)];
+    const lines = [`ttx-ssa v${ir.version}`, ...ir.params.map((p,i) => `p${i} ${p.name} = ${p.default}`)];
     ir.code.forEach(x => lines.push(`${ref(x.dst)} = ${x.op}${x.src.length ? ' ' + x.src.map(ref).join(' ') : ''}${x.imm ? ' ' + JSON.stringify(x.imm) : ''}${x.meta && x.meta.field ? `  # ${x.meta.field}` : ''}`));
     lines.push(`OUT_HEIGHT ${ref(ir.outputs.height)}`, `OUT_ALBEDO ${ir.outputs.albedo.map(ref).join(' ')}`, `OUT_ROUGH ${ref(ir.outputs.rough)}`, `OUT_METAL ${ref(ir.outputs.metal)}`);
     return lines.join('\n');
@@ -805,8 +805,8 @@ const GRAIN = (() => {
 })();
 
 
-// GRAIN render: 채널 버퍼 → 픽셀. 4개 뷰(shaded / albedo / height / normal).
-const GRAIN_RENDER = (() => {
+// TTX render: 채널 버퍼 → 픽셀. 4개 뷰(shaded / albedo / height / normal).
+const TTX_RENDER = (() => {
   function normals(buf, relief) {
     const { N, H } = buf; const Nx = new Float32Array(N * N), Ny = new Float32Array(N * N), Nz = new Float32Array(N * N);
     const s = relief * N * 0.06;
@@ -876,7 +876,7 @@ const GRAIN_RENDER = (() => {
 
 // Browser-native PBR package export. PNGs are already compressed, so the ZIP
 // uses STORE entries and remains dependency-free.
-const GRAIN_EXPORT = (() => {
+const TTX_EXPORT = (() => {
   const crcTable = (() => {
     const table = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
@@ -947,11 +947,11 @@ const GRAIN_EXPORT = (() => {
     const { id, name, source, prog, values, buf, normals, relief } = options;
     const size = buf.N, base = String(id || `material-${prog.seed}`).replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
     const maps = [
-      ['basecolor', GRAIN_RENDER.albedoImg(buf)],
-      ['height', GRAIN_RENDER.heightImg(buf)],
-      ['normal-opengl', GRAIN_RENDER.normalImg(normals, size)],
-      ['roughness', GRAIN_RENDER.roughImg(buf)],
-      ['metallic', GRAIN_RENDER.metalImg(buf)],
+      ['basecolor', TTX_RENDER.albedoImg(buf)],
+      ['height', TTX_RENDER.heightImg(buf)],
+      ['normal-opengl', TTX_RENDER.normalImg(normals, size)],
+      ['roughness', TTX_RENDER.roughImg(buf)],
+      ['metallic', TTX_RENDER.metalImg(buf)],
     ];
     const files = [];
     for (let i = 0; i < maps.length; i++) {
@@ -972,17 +972,17 @@ const GRAIN_EXPORT = (() => {
         roughness: { file: `${base}_roughness.png`, colorSpace: 'Non-Color' },
         metallic: { file: `${base}_metallic.png`, colorSpace: 'Non-Color' },
       },
-      source: `${base}.grain`,
+      source: `${base}.ttx`,
     };
     const readme = [
       `${name || base} · ${size}×${size} PBR texture set`, '',
       'Base Color: use sRGB color space.',
       'Height, Normal, Roughness, Metallic: use Non-Color / Linear.',
       'Normal uses OpenGL (+Y). Invert the green channel for DirectX normal maps.',
-      'Height is an 8-bit normalized map. The included .grain source remains the procedural authority.',
+      'Height is an 8-bit normalized map. The included .ttx source remains the procedural authority.',
     ].join('\n');
     files.push({ name: 'material.json', data: text(JSON.stringify(manifest, null, 2) + '\n') });
-    files.push({ name: `${base}.grain`, data: text(source.trim() + '\n') });
+    files.push({ name: `${base}.ttx`, data: text(source.trim() + '\n') });
     files.push({ name: 'README.txt', data: text(readme + '\n') });
     progress('ZIP');
     return { filename: `${base}-pbr-${size}.zip`, blob: new Blob([zipStore(files)], { type: 'application/zip' }) };
@@ -997,9 +997,9 @@ const GRAIN_EXPORT = (() => {
 })();
 
 
-// Native WebGL2 material preview. Current GRAIN buffers become GPU PBR textures;
+// Native WebGL2 material preview. Current TTX buffers become GPU PBR textures;
 // height drives both vertex displacement and tangent-space surface normals.
-const GRAIN_3D = (() => {
+const TTX_3D = (() => {
   const clamp01 = x => Math.min(1, Math.max(0, x));
 
   function perspective(fovy, aspect, near, far) {
@@ -1173,7 +1173,7 @@ void main(){
       canvas.parentElement.classList.add('no-webgl');
       const note=canvas.parentElement.querySelector('.webgl-note');
       if (error) {
-        console.error('GRAIN 3D preview:', error);
+        console.error('TTX 3D preview:', error);
         if(note) note.textContent=`3D 프리뷰 초기화 오류\n${error && error.message ? error.message : String(error)}`;
       }
       return { available:false, update(){}, draw(){}, setMesh(){}, reset(){} };
@@ -1293,7 +1293,7 @@ void main(){
 })();
 
 
-const GRAIN_EXAMPLES = [
+const TTX_EXAMPLES = [
 { id: 'ceramic', name: 'CRACKLE CERAMIC', src: `# 빙열 유약 도자기 — 유약의 흐림, 두 규모의 빙열, 미세한 기포를 겹친 완성 재질
 seed = 17
 tile = 1
@@ -1550,24 +1550,24 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   const src = $('src'), msg = $('msg'), meter = $('meter'), tabs = $('tabs'), varsEl = $('vars');
   const irbox = $('irbox'), irButton = $('toggle-ir');
   const cv = { shaded: $('c-shaded'), albedo: $('c-albedo'), height: $('c-height'), normal: $('c-normal') };
-  const preview3d = GRAIN_3D.create($('c-preview3d'));
-  const state = { prog: null, buf: null, nrm: null, V: null, materialId: 'material', materialName: 'GRAIN MATERIAL', light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
+  const preview3d = TTX_3D.create($('c-preview3d'));
+  const state = { prog: null, buf: null, nrm: null, V: null, materialId: 'material', materialName: 'TTX MATERIAL', light: { az: 0.12, el: 0.45 }, relief: 0.6, repeat3d: 1, N: 320, zoom: 1, centerU: 0.5, centerV: 0.5, dirty: true };
   let timer = null;
 
   // ---------- tabs ----------
-  GRAIN_EXAMPLES.forEach((ex, i) => {
+  TTX_EXAMPLES.forEach((ex, i) => {
     const b = document.createElement('button'); b.className = 'tab'; b.textContent = ex.name; b.setAttribute('role', 'tab');
     b.onclick = () => { load(i); }; tabs.appendChild(b);
   });
   function load(i) {
     [...tabs.children].forEach((b, j) => b.classList.toggle('on', j === i));
-    src.value = GRAIN_EXAMPLES[i].src; state.V = null; state.materialId = GRAIN_EXAMPLES[i].id; state.materialName = GRAIN_EXAMPLES[i].name; compileNow();
+    src.value = TTX_EXAMPLES[i].src; state.V = null; state.materialId = TTX_EXAMPLES[i].id; state.materialName = TTX_EXAMPLES[i].name; compileNow();
   }
 
   // ---------- compile ----------
   function compileNow() {
     let res;
-    try { res = GRAIN.build(src.value); }
+    try { res = TTX.build(src.value); }
     catch (e) {
       msg.className = 'msg err'; msg.textContent = '✕ ' + e.message + (state.prog ? '\n  (마지막 정상 spec 유지 중)' : '');
       return;
@@ -1576,12 +1576,12 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
     // var 슬라이더 값 유지(같은 이름이면)
     const keep = {}; if (state.prog && state.V) state.prog.vars.forEach((v, i) => keep[v.name] = state.V[i]);
     state.prog = p; state.V = p.vars.map(v => (v.name in keep ? keep[v.name] : v.value));
-    irbox.textContent = GRAIN.formatIR(res.ir);
+    irbox.textContent = TTX.formatIR(res.ir);
     $('nir').textContent = `IR ${p.irInstructions} inst`;
     $('hdr-tile').textContent = p.tile ? `tile = ${p.tile}` : 'tile off';
-    $('cost').textContent = `${p.cost.toFixed(1)} / ${GRAIN.LIMITS.maxCost}`;
-    meter.classList.toggle('over', p.cost > GRAIN.LIMITS.maxCost);
-    meter.firstElementChild.style.width = Math.min(100, 100 * p.cost / GRAIN.LIMITS.maxCost) + '%';
+    $('cost').textContent = `${p.cost.toFixed(1)} / ${TTX.LIMITS.maxCost}`;
+    meter.classList.toggle('over', p.cost > TTX.LIMITS.maxCost);
+    meter.firstElementChild.style.width = Math.min(100, 100 * p.cost / TTX.LIMITS.maxCost) + '%';
     $('nfields').textContent = `${p.fieldNames.length}+${p.hiddenFields}`;
     $('nmacros').textContent = `${p.macroDefs} def · ${p.macroInstances} inst`;
     if (p.warnings.length) { msg.className = 'msg warn'; msg.textContent = p.warnings.map(w => '⚠ ' + w).join('\n'); }
@@ -1611,14 +1611,14 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   function evalNow() {
     if (!state.prog) return;
     const t0 = performance.now();
-    state.buf = GRAIN.evaluate(state.prog, state.N, state.V, { zoom: state.zoom, centerU: state.centerU, centerV: state.centerV });
-    state.nrm = GRAIN_RENDER.normals(state.buf, state.relief * state.zoom);
+    state.buf = TTX.evaluate(state.prog, state.N, state.V, { zoom: state.zoom, centerU: state.centerU, centerV: state.centerV });
+    state.nrm = TTX_RENDER.normals(state.buf, state.relief * state.zoom);
     $('evalms').textContent = (performance.now() - t0).toFixed(0) + 'ms';
-    const se = GRAIN.seamError(state.prog, 128, state.V, state.buf.viewport.rho); const seamEl = $('seam');
+    const se = TTX.seamError(state.prog, 128, state.V, state.buf.viewport.rho); const seamEl = $('seam');
     seamEl.textContent = se < 1e-6 ? '0 ✓' : se.toFixed(3); seamEl.style.color = se < 1e-6 ? 'var(--ok)' : (state.prog.tile ? 'var(--err)' : 'var(--dim)');
     draw(true);
   }
-  function relightOnly() { if (!state.buf) return; state.nrm = GRAIN_RENDER.normals(state.buf, state.relief * state.zoom); draw(true); }
+  function relightOnly() { if (!state.buf) return; state.nrm = TTX_RENDER.normals(state.buf, state.relief * state.zoom); draw(true); }
   function put(c, data, N) {
     const T = state.tiles || 1, W = N * T;
     if (c.width !== W) { c.width = W; c.height = W; }
@@ -1627,8 +1627,8 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   }
   function draw(all) {
     const { buf, nrm } = state, N = buf.N;
-    put(cv.shaded, GRAIN_RENDER.shade(buf, nrm, state.light), N);
-    if (all) { put(cv.albedo, GRAIN_RENDER.albedoImg(buf), N); put(cv.height, GRAIN_RENDER.heightImg(buf), N); put(cv.normal, GRAIN_RENDER.normalImg(nrm, N), N); }
+    put(cv.shaded, TTX_RENDER.shade(buf, nrm, state.light), N);
+    if (all) { put(cv.albedo, TTX_RENDER.albedoImg(buf), N); put(cv.height, TTX_RENDER.heightImg(buf), N); put(cv.normal, TTX_RENDER.normalImg(nrm, N), N); }
     if (all) preview3d.update(buf);
     preview3d.draw({ light:state.light, relief:state.relief, zoom:state.zoom, repeat:state.repeat3d });
   }
@@ -1654,11 +1654,11 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
     button.disabled = true; output.textContent = 'PACK';
     try {
       await new Promise(resolve => requestAnimationFrame(() => resolve()));
-      const pkg = await GRAIN_EXPORT.packagePbr({
+      const pkg = await TTX_EXPORT.packagePbr({
         id: state.materialId, name: state.materialName, source: src.value, prog: state.prog, values: state.V,
         buf: state.buf, normals: state.nrm, relief: state.relief * state.zoom,
       }, label => { output.textContent = label; });
-      GRAIN_EXPORT.download(pkg); output.textContent = 'DONE';
+      TTX_EXPORT.download(pkg); output.textContent = 'DONE';
     } catch (error) {
       output.textContent = 'ERR'; msg.className = 'msg err'; msg.textContent = '✕ PBR export: ' + (error.message || error);
     } finally { button.disabled = false; }
@@ -1685,7 +1685,7 @@ out rough  = clamp(0.23 + 0.28*vn, 0, 1)
   sc.addEventListener('pointermove', e => { if (dragging) setLightFromEvent(e); });
   sc.addEventListener('pointerup', () => dragging = false);
 
-  $('hdr-right').textContent = `${GRAIN_EXAMPLES.length} materials · budget ${GRAIN.LIMITS.maxCost}/px · oct ≤ ${GRAIN.LIMITS.maxOct}`;
+  $('hdr-right').textContent = `${TTX_EXAMPLES.length} materials · budget ${TTX.LIMITS.maxCost}/px · oct ≤ ${TTX.LIMITS.maxOct}`;
   load(0);
 })();
 </script>
