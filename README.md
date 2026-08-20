@@ -1,28 +1,14 @@
-<div align="center">
-  <table>
-    <tr>
-      <td width="380" align="center"><img src="./assets/taiga-cat.gif" width="330" alt="Taiga cat mascot"></td>
-      <td width="520" align="center"><h1>TAIGA's Texture</h1></td>
-    </tr>
-  </table>
-</div>
+<p align="center">
+  <img src="./assets/banner.png" width="100%" alt="TAIGA's Texture">
+</p>
 
-<div align="center">
-
-[![CI](https://github.com/kawaiiTaiga/taigas-texture/actions/workflows/ci.yml/badge.svg)](https://github.com/kawaiiTaiga/taigas-texture/actions/workflows/ci.yml)
-![Node 20+](https://img.shields.io/badge/node-20%2B-6da55f?style=flat-square)
-![WebGL 2](https://img.shields.io/badge/preview-WebGL%202-5c7cfa?style=flat-square)
-![Zero dependencies](https://img.shields.io/badge/runtime_dependencies-0-8fb7a6?style=flat-square)
-
-<code>deterministic procedural materials · browser workbench · CLI · MCP</code>
-
-</div>
+<p align="center"><code>deterministic procedural materials · browser workbench · CLI · MCP</code></p>
 
 ---
 
 > **TAIGA's Texture** is a compact procedural-material laboratory built around **GRAIN**, a deterministic field-graph DSL that can be authored by people or driven by an LLM.
 
-브라우저에서 재질을 편집하고, PBR 채널과 큐브 프리뷰를 확인하고, 같은 엔진을 CLI 또는 MCP로 자동화할 수 있습니다.
+Edit materials in the browser, inspect PBR channels and a cube preview, then automate the same engine through the CLI or MCP.
 
 ## `[ MATERIAL GALLERY ]`
 
